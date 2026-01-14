@@ -1,4 +1,4 @@
-# 🛡️ Anish Security Scanner Web v3.2
+# 🛡️ Vulnerability Scanner v3.3
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-2.3+-green.svg)](https://flask.palletsprojects.com/)
@@ -343,16 +343,17 @@ Student • Engineer • Cybersecurity Learner • Cosmology Enthusiast
 I'm passionate about understanding systems at their deepest level — from network security and penetration testing to physics and cosmology.
 
 ## 🌐 Connect With Me
-- 🌍 **Website:** https://anish-kushwaha.b12sites.com  
-- 📁 **Portfolio:** https://anish-kushwaha.github.io  
-- 🐙 **GitHub:** https://github.com/Anish-Kushwaha  
-- 💼 **LinkedIn:** https://www.linkedin.com/in/anish-kushwaha-43a915383  
-- 🐦 **Twitter (X):** https://x.com/Anish_Kushwaha_  
-- 📘 **Facebook:** https://facebook.com/Anishkushwahaji  
-- ✈️ **Telegram:** https://t.me/Anish_Kushwaha_ji  
-- 💻 **LeetCode:** https://leetcode.com/Anish-Kushwaha  
-- ♟️ **Chess.com:** https://www.chess.com/member/Anish-Kushwaha  
-- 📺 **YouTube:** https://www.youtube.com/@cosmologist_anish  
+
+[![Website](https://img.shields.io/badge/🌍%20Website-FF7139?style=for-the-badge&logo=firefox&logoColor=white)](https://Anish-kushwaha.b12sites.com)  
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Anish-Kushwaha)  
+[![LeetCode](https://img.shields.io/badge/LeetCode-000000?style=for-the-badge&logo=LeetCode&logoColor=#d16c06)](https://leetcode.com/Anish-Kushwaha/)  
+[![HackerRank](https://img.shields.io/badge/HackerRank-2EC866?style=for-the-badge&logo=HackerRank&logoColor=white)](https://www.hackerrank.com/Anish_Kushwaha)  
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/anish-kushwaha-43a915383)  
+[![Twitter](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/Anish_Kushwaha_)  
+[![Facebook](https://img.shields.io/badge/Facebook-1877F2?style=for-the-badge&logo=facebook&logoColor=white)](https://facebook.com/Anishkushwahaji)  
+[![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtube.com/@cosmologist_anish)  
+
+---
 
 > *"I don't follow the universe — I reprogram it."*  
 > © 2026 Anish Kushwaha
