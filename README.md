@@ -188,7 +188,7 @@ Valid target formats:
 - 148.72.90.52
 - 148.72.90.52:8443
 ```
-> *Note: The above given URL, IP, PORT, and Administrative Panel, all are real. These credentials are of my school website. You can try login page of Admin Controls on .[http://148.72.90.52:8443]*
+> *Note: The above given URL, IP, PORT, and Administrative Panel, all are real. These credentials are of my school website. You can try login page of Admin Controls on .[https://148.72.90.52:8443]*
 
 ### 3️⃣ Scanning Parameters
 
