@@ -182,12 +182,13 @@ python app.py
 
 ```
 Valid target formats:
-- https://example.com
-- http://example.com:8080
-- example.com:8443 (auto-fixes to https)
-- 192.168.1.1
-- 192.168.1.1:443
+- https://stmarysschoolbxr.org
+- http://stmarysschoolbxr.org:8443
+- stmarysschoolbxr.org:8443 (auto-fixes to https)
+- 148.72.90.52
+- 148.72.90.52:8443
 ```
+> *Note: The above given URL, IP, PORT, and Administrative Panel, all are real. These credentials are of my school website. You can try login page of Admin Controls on .[http://148.72.90.52:8443]*
 
 ### 3️⃣ Scanning Parameters
 
