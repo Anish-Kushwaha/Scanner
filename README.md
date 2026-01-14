@@ -1,4 +1,4 @@
-```markdown
+``markdown
 # 🛡️ Anish Security Scanner Web v3.2
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
@@ -99,7 +99,7 @@ python app.py
 # Open: http://localhost:5000
 ```
 
-Option 2: Download ZIP
+#### **Option 2: Download ZIP**
 
 1. Download the ZIP from GitHub Repository
 2. Extract to your preferred location
@@ -119,7 +119,7 @@ The scanner automatically installs these packages:
 
 ---
 
-📁 Project Structure
+## 📁 Project Structure
 
 ```
 Scanner/
@@ -140,9 +140,9 @@ Scanner/
 
 ---
 
-🔧 How It Works
+## 🔧 How It Works
 
-🔄 Scanning Process Flow
+### 🔄 Scanning Process Flow
 
 1. Target Input: User enters URL (auto-fixes missing scheme)
 2. Reconnaissance: DNS resolution, WHOIS lookup, geolocation
@@ -151,7 +151,7 @@ Scanner/
 5. Plesk Detection: Specialized Plesk panel scanning
 6. Report Generation: JSON report compilation and download
 
-⚙️ Technical Architecture
+### ⚙️ Technical Architecture
 
 · Frontend: HTML5, CSS3, JavaScript (Vanilla)
 · Backend: Flask (Python) with REST API
@@ -159,7 +159,7 @@ Scanner/
 · Security: Rate limiting, timeout handling, error management
 · Performance: Multi-threaded scanning for speed optimization
 
-🎯 Key Algorithms
+### 🎯 Key Algorithms
 
 1. Port Scanner: TCP SYN-based connection testing
 2. Banner Grabbing: HTTP HEAD requests for service identification
@@ -169,9 +169,9 @@ Scanner/
 
 ---
 
-⚡ Quick Start
+## ⚡ Quick Start
 
-1️⃣ Basic Usage
+### 1️⃣ Basic Usage
 
 ```python
 # After installation, simply run:
@@ -179,7 +179,7 @@ python app.py
 # Then open http://localhost:5000
 ```
 
-2️⃣ Target Format Examples
+### 2️⃣ Target Format Examples
 
 ```
 Valid target formats:
@@ -190,7 +190,7 @@ Valid target formats:
 - 192.168.1.1:443
 ```
 
-3️⃣ Scanning Parameters
+### 3️⃣ Scanning Parameters
 
 · Timeout: 5 seconds per request
 · Port Range: 21-8888 (common services)
@@ -199,9 +199,9 @@ Valid target formats:
 
 ---
 
-📊 Scanner Modules
+## **📊 Scanner Modules**
 
-🔌 Network Scanner
+### 🔌 Network Scanner
 
 ```python
 # Scans these ports by default:
@@ -213,8 +213,8 @@ BANNER_GRAB_PORTS = [21, 22, 23, 25, 80, 110, 143,
                      443, 3306, 3389]
 ```
 
-🕸️ Web Vulnerability Checks
-
+### 🕸️ Web Vulnerability Checks
+```
 · XSS Payload: <script>alert('XSS')</script>
 · SQLi Payload: ' OR '1'='1
 · Directory List: /admin, /backup, /config, /logs
@@ -228,14 +228,14 @@ PHP/5.x Multiple CVEs Critical
 nginx/1.x Known vulnerabilities Medium
 IIS/6.x Multiple CVEs High
 PleskLin CVE-2023-24044 Critical
-
+```
 ---
 
-🧪 Demo Mode
+# 🧪 Demo Mode
 
-The scanner includes a Demo Mode for testing without actual scanning:
+## The scanner includes a Demo Mode for testing without actual scanning:
 
-Features of Demo Mode:
+### Features of Demo Mode:
 
 · Pre-populated scan results
 · All scanner modules demonstrated
@@ -243,14 +243,14 @@ Features of Demo Mode:
 · No network requests made
 · Perfect for learning and testing
 
-How to Use Demo:
+### How to Use Demo:
 
 1. Open the scanner interface
 2. Click "LOAD DEMO DATA" button
 3. Explore all features with sample data
 4. Understand scanner output format
 
-Demo Data Includes:
+### Demo Data Includes:
 
 · Sample open ports (22, 80, 443, 3306)
 · Mock vulnerabilities (XSS, SQLi)
@@ -260,7 +260,7 @@ Demo Data Includes:
 
 ---
 
-📄 Report Generation
+### 📄 Report Generation
 
 Report Features:
 
@@ -293,7 +293,7 @@ Report Structure:
 }
 ```
 
-Using Reports:
+## Using Reports:
 
 1. Click "Download JSON Report" after scan
 2. Analyze with security tools
@@ -303,9 +303,9 @@ Using Reports:
 
 ---
 
-⚖️ Legal Disclaimer
+## ⚖️ Legal Disclaimer
 
-⚠️ IMPORTANT WARNING ⚠️
+### ⚠️ IMPORTANT WARNING ⚠️
 
 ```
 THIS TOOL IS FOR EDUCATIONAL AND AUTHORIZED SECURITY TESTING ONLY.
@@ -325,7 +325,7 @@ THE AUTHOR IS NOT RESPONSIBLE FOR:
 By using this tool, you agree to use it ethically and legally.
 ```
 
-Ethical Use Guidelines:
+## Ethical Use Guidelines:
 
 1. Get Permission: Always obtain written authorization
 2. Define Scope: Clearly document what you're testing
@@ -335,10 +335,9 @@ Ethical Use Guidelines:
 
 ---
 
-👨💻 About The Author
+# 👨💻 About The Author
 
-```markdown
-# 👋 Hi, I'm Anish Kushwaha
+## 👋 Hi, I'm Anish Kushwaha
 
 Student • Engineer • Cybersecurity Learner • Cosmology Enthusiast  
 
@@ -358,13 +357,12 @@ I'm passionate about understanding systems at their deepest level — from netwo
 
 > *"I don't follow the universe — I reprogram it."*  
 > © 2026 Anish Kushwaha
-```
 
 ---
 
-📄 License
+## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### This project is licensed under the MIT License - see the LICENSE file for details.
 
 ```
 MIT License
@@ -391,8 +389,9 @@ SOFTWARE.
 ```
 
 ---
-
+```
 <div align="center">
+```
 
 🚀 Ready to Secure Your Systems?
 
@@ -402,4 +401,3 @@ https://img.shields.io/badge/START_SCANNING-Now-blue?style=for-the-badge&logo=sh
 Stay curious, stay secure.
 
 </div>
-```
