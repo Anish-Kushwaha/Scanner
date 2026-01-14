@@ -1,5 +1,5 @@
 Flask==2.3.3
-Flask-CORS==4.0.0
+Flask-CORS==6.0.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 python-whois==0.9.3
