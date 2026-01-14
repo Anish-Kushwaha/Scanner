@@ -1,4 +1,3 @@
-``markdown
 # 🛡️ Anish Security Scanner Web v3.2
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
@@ -391,11 +390,10 @@ SOFTWARE.
 ---
 ```
 <div align="center">
-```
 
 🚀 Ready to Secure Your Systems?
 
-https://img.shields.io/badge/START_SCANNING-Now-blue?style=for-the-badge&logo=shield-check
+.[https://img.shields.io/badge/START_SCANNING-Now-blue?style=for-the-badge&logo=shield-check).
 
 ⚚Ⓐ⚚
 Stay curious, stay secure.
