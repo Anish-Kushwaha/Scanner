@@ -12,3 +12,20 @@ python -m http.server 8080
 
 
 cloudflared tunnel --url http://localhost:8080
+
+
+
+
+$crdUrl = "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi"
+$crdPath = "$env:TEMP\chromeremotedesktophost.msi"
+Invoke-WebRequest -Uri $crdUrl -OutFile $crdPath
+msiexec /i $crdPath /quiet /norestart
+
+Start-Service chromoting
+Set-Service chromoting -StartupType Automatic
+
+
+Get-Service chromoting
+
+start chrome https://remotedesktop.google.com/access
+
