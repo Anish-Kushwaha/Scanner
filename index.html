@@ -1393,408 +1393,520 @@
 
     <!-- JavaScript -->
     <script>
-        // Terminal Manager
-        class Terminal {
-            constructor(elementId) {
-                this.terminal = document.getElementById(elementId);
-                this.logs = [];
-                this.maxLogs = 100;
-            }
+    // Terminal Manager
+    class Terminal {
+        constructor(elementId) {
+            this.terminal = document.getElementById(elementId);
+            this.logs = [];
+            this.maxLogs = 100;
+        }
 
-            log(message, type = 'info') {
-                const timestamp = new Date().toLocaleTimeString();
-                const logEntry = `[${timestamp}] ${message}`;
-                const formattedEntry = `<span class="log-${type}">${logEntry}</span>`;
-                
-                this.logs.push(formattedEntry);
-                
-                // Keep only last maxLogs entries
-                if (this.logs.length > this.maxLogs) {
-                    this.logs.shift();
-                }
-                
-                this.terminal.innerHTML = this.logs.join('\n') + '\n';
-                this.terminal.scrollTop = this.terminal.scrollHeight;
+        log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            const formattedEntry = `<span class="log-${type}">${logEntry}</span>`;
+            
+            this.logs.push(formattedEntry);
+            
+            // Keep only last maxLogs entries
+            if (this.logs.length > this.maxLogs) {
+                this.logs.shift();
             }
+            
+            this.terminal.innerHTML = this.logs.join('\n') + '\n';
+            this.terminal.scrollTop = this.terminal.scrollHeight;
+        }
 
-            clear() {
-                this.logs = [];
-                this.terminal.innerHTML = '[+] Terminal cleared\n';
-                this.log('Terminal cleared successfully', 'success');
-            }
+        clear() {
+            this.logs = [];
+            this.terminal.innerHTML = '[+] Terminal cleared\n';
+            this.log('Terminal cleared successfully', 'success');
+        }
 
-            async copyToClipboard() {
-                const text = this.logs.map(log => 
-                    log.replace(/<[^>]*>/g, '')
-                ).join('\n');
-                
-                try {
-                    await navigator.clipboard.writeText(text);
-                    this.log('Log copied to clipboard', 'success');
-                } catch (err) {
-                    this.log('Failed to copy log: ' + err.message, 'error');
-                }
-            }
-
-            saveToFile() {
-                const text = this.logs.map(log => 
-                    log.replace(/<[^>]*>/g, '')
-                ).join('\n');
-                
-                const blob = new Blob([text], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `scanner_log_${Date.now()}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.log('Log saved to file', 'success');
+        async copyToClipboard() {
+            const text = this.logs.map(log => 
+                log.replace(/<[^>]*>/g, '')
+            ).join('\n');
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                this.log('Log copied to clipboard', 'success');
+            } catch (err) {
+                this.log('Failed to copy log: ' + err.message, 'error');
             }
         }
 
-        // Scan Manager
-        class ScanManager {
-            constructor() {
-                this.terminal = new Terminal('terminalOutput');
+        saveToFile() {
+            const text = this.logs.map(log => 
+                log.replace(/<[^>]*>/g, '')
+            ).join('\n');
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scanner_log_${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.log('Log saved to file', 'success');
+        }
+    }
+
+    // Scan Manager
+    class ScanManager {
+        constructor() {
+            this.terminal = new Terminal('terminalOutput');
+            this.isScanning = false;
+            this.currentScan = null;
+            // ✅ CORRECT BACKEND URL
+            this.backendUrl = 'https://scanner-rose-rho.vercel.app';
+            this.scanStages = [
+                { id: 1, name: 'Reconnaissance', duration: 1000 },
+                { id: 2, name: 'Network Scan', duration: 2000 },
+                { id: 3, name: 'Web Vulnerabilities', duration: 1500 },
+                { id: 4, name: 'Server Analysis', duration: 1000 },
+                { id: 5, name: 'Report Generation', duration: 500 }
+            ];
+        }
+
+        async startScan(targetUrl) {
+            if (this.isScanning) {
+                this.terminal.log('A scan is already in progress', 'warning');
+                return;
+            }
+
+            if (!targetUrl || targetUrl.trim() === '') {
+                this.terminal.log('Please enter a target URL', 'error');
+                return;
+            }
+
+            try {
+                this.isScanning = true;
+                this.terminal.log(`Starting scan for: ${targetUrl}`, 'info');
+                
+                // Show progress section, hide results
+                document.getElementById('progressSection').style.display = 'block';
+                document.getElementById('resultsDashboard').style.display = 'none';
+                document.getElementById('startScan').disabled = true;
+                document.getElementById('demoScan').disabled = true;
+                
+                // Reset progress
+                this.resetProgress();
+                
+                // Start the scan process
+                await this.performScan(targetUrl);
+                
+            } catch (error) {
+                this.terminal.log(`Scan error: ${error.message}`, 'error');
+                this.updateProgress(0, 'Scan failed');
+                document.getElementById('progressSection').style.display = 'none';
+            } finally {
                 this.isScanning = false;
-                this.currentScan = null;
-                this.backendUrl = 'https://scanner-rose-rho.vercel.app/api';
-                this.scanStages = [
-                    { id: 1, name: 'Reconnaissance', duration: 2000 },
-                    { id: 2, name: 'Network Scan', duration: 3000 },
-                    { id: 3, name: 'Web Vulnerabilities', duration: 2500 },
-                    { id: 4, name: 'Server Analysis', duration: 2000 },
-                    { id: 5, name: 'Report Generation', duration: 1500 }
-                ];
+                document.getElementById('startScan').disabled = false;
+                document.getElementById('demoScan').disabled = false;
             }
+        }
 
-            async startScan(targetUrl) {
-                if (this.isScanning) {
-                    this.terminal.log('A scan is already in progress', 'warning');
-                    return;
-                }
+        resetProgress() {
+            // Reset progress bar
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressText').textContent = 'Initializing scanner...';
+            
+            // Reset stage indicators
+            document.querySelectorAll('.stage').forEach(stage => {
+                stage.classList.remove('active', 'completed');
+            });
+            document.querySelector('.stage[data-stage="1"]').classList.add('active');
+        }
 
-                if (!targetUrl || targetUrl.trim() === '') {
-                    this.terminal.log('Please enter a target URL', 'error');
-                    return;
-                }
-
-                try {
-                    this.isScanning = true;
-                    this.terminal.log(`Starting scan for: ${targetUrl}`, 'info');
-                    
-                    // Show progress section, hide results
-                    document.getElementById('progressSection').style.display = 'block';
-                    document.getElementById('resultsDashboard').style.display = 'none';
-                    document.getElementById('startScan').disabled = true;
-                    
-                    // Reset progress
-                    this.resetProgress();
-                    
-                    // Start the scan process
-                    await this.performScan(targetUrl);
-                    
-                } catch (error) {
-                    this.terminal.log(`Scan error: ${error.message}`, 'error');
-                    this.updateProgress(0, 'Scan failed');
-                } finally {
-                    this.isScanning = false;
-                    document.getElementById('startScan').disabled = false;
-                }
-            }
-
-            resetProgress() {
-                // Reset progress bar
-                document.getElementById('progressFill').style.width = '0%';
-                document.getElementById('progressText').textContent = 'Initializing scanner...';
+        async performScan(targetUrl) {
+            let totalProgress = 0;
+            
+            // Stage 1: Initializing
+            this.updateStage(1, 'Initializing scanner...');
+            this.terminal.log('Initializing vulnerability scanner', 'info');
+            await this.wait(1000);
+            
+            // Stage 2: DNS Resolution
+            this.updateStage(2, 'Resolving DNS...');
+            this.terminal.log(`Resolving DNS for: ${targetUrl}`, 'info');
+            await this.wait(1000);
+            
+            // Stage 3: Calling Backend API
+            this.updateStage(3, 'Scanning vulnerabilities...');
+            this.terminal.log('Calling scanner API...', 'info');
+            
+            try {
+                // ✅ ACTUAL API CALL - NOT DEMO
+                const scanResults = await this.callBackendAPI(targetUrl);
                 
-                // Reset stage indicators
-                document.querySelectorAll('.stage').forEach(stage => {
-                    stage.classList.remove('active', 'completed');
-                });
-                document.querySelector('.stage[data-stage="1"]').classList.add('active');
-            }
-
-            async performScan(targetUrl) {
-                let totalProgress = 0;
-                
-                for (const stage of this.scanStages) {
-                    const stageElement = document.querySelector(`.stage[data-stage="${stage.id}"]`);
-                    const previousStage = document.querySelector(`.stage[data-stage="${stage.id - 1}"]`);
-                    
-                    // Update stage status
-                    if (previousStage) {
-                        previousStage.classList.remove('active');
-                        previousStage.classList.add('completed');
-                    }
-                    stageElement.classList.add('active');
-                    
-                    // Update progress
-                    const stageProgress = (stage.id / this.scanStages.length) * 100;
-                    this.updateProgress(stageProgress, stage.name);
-                    
-                    // Simulate scan for this stage
-                    await this.simulateStage(stage);
-                    
-                    this.terminal.log(`Completed: ${stage.name}`, 'success');
+                if (scanResults.error) {
+                    throw new Error(scanResults.error);
                 }
                 
-                // Mark last stage as completed
-                document.querySelector('.stage[data-stage="5"]').classList.remove('active');
-                document.querySelector('.stage[data-stage="5"]').classList.add('completed');
+                // Stage 4: Processing results
+                this.updateStage(4, 'Processing results...');
+                this.terminal.log('Processing scan results...', 'info');
+                await this.wait(1000);
+                
+                // Stage 5: Displaying results
+                this.updateStage(5, 'Generating report...');
+                this.terminal.log('Generating security report...', 'info');
+                await this.wait(500);
                 
                 // Complete scan
                 this.updateProgress(100, 'Scan completed!');
                 this.terminal.log('Vulnerability scan completed successfully', 'success');
                 
+                // Process and display REAL results
+                this.processRealResults(scanResults, targetUrl);
+                
                 // Show results after delay
                 setTimeout(() => {
                     document.getElementById('progressSection').style.display = 'none';
                     document.getElementById('resultsDashboard').style.display = 'block';
-                    this.loadDemoResults(targetUrl); // For now, use demo data
-                }, 1500);
+                }, 1000);
+                
+            } catch (error) {
+                this.terminal.log(`API Error: ${error.message}`, 'error');
+                // Fallback to demo data if API fails
+                this.loadDemoResults(targetUrl);
+                this.updateProgress(100, 'Scan completed (demo data)');
+                
+                setTimeout(() => {
+                    document.getElementById('progressSection').style.display = 'none';
+                    document.getElementById('resultsDashboard').style.display = 'block';
+                }, 1000);
             }
+        }
 
-            async simulateStage(stage) {
-                return new Promise(resolve => {
-                    setTimeout(() => {
-                        // Simulate API call
-                        this.terminal.log(`Processing: ${stage.name}...`, 'info');
-                        resolve();
-                    }, stage.duration);
+        updateStage(stageId, message) {
+            // Mark previous stage as completed
+            const previousStage = document.querySelector(`.stage[data-stage="${stageId - 1}"]`);
+            if (previousStage) {
+                previousStage.classList.remove('active');
+                previousStage.classList.add('completed');
+            }
+            
+            // Set current stage as active
+            const currentStage = document.querySelector(`.stage[data-stage="${stageId}"]`);
+            if (currentStage) {
+                currentStage.classList.add('active');
+            }
+            
+            // Update progress
+            const progressPercent = (stageId / this.scanStages.length) * 100;
+            this.updateProgress(progressPercent, message);
+        }
+
+        updateProgress(percent, message) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            progressFill.style.width = `${percent}%`;
+            progressText.textContent = message;
+        }
+
+        wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // ✅ REAL API CALL METHOD
+        async callBackendAPI(targetUrl) {
+            this.terminal.log(`Sending request to: ${this.backendUrl}/api/scan`, 'info');
+            
+            try {
+                const response = await fetch(`${this.backendUrl}/api/scan`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ target: targetUrl }),
+                    mode: 'cors' // Important for CORS
                 });
-            }
-
-            updateProgress(percent, message) {
-                const progressFill = document.getElementById('progressFill');
-                const progressText = document.getElementById('progressText');
                 
-                progressFill.style.width = `${percent}%`;
-                progressText.textContent = message;
-            }
-
-            loadDemoResults(targetUrl) {
-                // Parse the target URL
-                const url = new URL(targetUrl);
-                const domain = url.hostname;
-                const port = url.port || (url.protocol === 'https:' ? 443 : 80);
+                this.terminal.log(`Response status: ${response.status}`, 'info');
                 
-                // Demo data (replace with actual API call later)
-                const demoData = {
-                    target: {
-                        url: targetUrl,
-                        domain: domain,
-                        ip: '93.184.216.34', // example.com IP
-                        port: port,
-                        scheme: url.protocol.replace(':', '')
-                    },
-                    network: {
-                        open_ports: [
-                            { port: 80, service: 'HTTP', banner: 'nginx/1.18.0', status: 'open', vuln: '⚠️ Outdated version' },
-                            { port: 443, service: 'HTTPS', banner: 'Apache/2.4.41', status: 'open', vuln: 'Secure' },
-                            { port: 22, service: 'SSH', banner: 'OpenSSH_8.2p1', status: 'open', vuln: '⚠️ Default port' }
-                        ],
-                        total_open: 3
-                    },
-                    vulnerabilities: {
-                        count: 2,
-                        list: [
-                            { type: 'XSS', severity: 'Medium', url: `${targetUrl}/search?q=<script>`, description: 'Potential Cross-Site Scripting' },
-                            { type: 'Information Disclosure', severity: 'Low', url: `${targetUrl}/robots.txt`, description: 'Robots.txt exposed' }
-                        ]
-                    },
-                    server: {
-                        name: 'nginx',
-                        version: '1.18.0',
-                        powered_by: 'PHP/7.4',
-                        response_time: '245ms',
-                        headers: {
-                            'X-Frame-Options': 'SAMEORIGIN',
-                            'X-Content-Type-Options': 'nosniff',
-                            'Content-Security-Policy': 'Not set',
-                            'X-XSS-Protection': '1; mode=block'
-                        }
-                    },
-                    geolocation: {
-                        country: 'United States',
-                        city: 'Los Angeles',
-                        region: 'California',
-                        isp: 'Cloudflare',
-                        coordinates: '34.0522° N, 118.2437° W'
-                    },
-                    risk_level: 'Medium'
-                };
-                
-                // Update UI with demo data
-                this.updateUIWithResults(demoData);
-                this.currentScan = demoData;
-                
-                this.terminal.log('Results loaded successfully', 'success');
-                this.terminal.log(`Found ${demoData.vulnerabilities.count} vulnerabilities`, 
-                    demoData.vulnerabilities.count > 0 ? 'warning' : 'success');
-            }
-
-            updateUIWithResults(data) {
-                // Update summary cards
-                document.getElementById('openPortsCount').textContent = data.network.total_open;
-                document.getElementById('vulnCount').textContent = data.vulnerabilities.count;
-                document.getElementById('serverFindings').textContent = data.vulnerabilities.count > 0 ? 'Issues found' : 'Secure';
-                document.getElementById('riskLevel').textContent = data.risk_level;
-                
-                // Update target info
-                document.getElementById('infoTargetUrl').textContent = data.target.url;
-                document.getElementById('infoDomain').textContent = data.target.domain;
-                document.getElementById('infoIP').textContent = data.target.ip;
-                document.getElementById('infoPort').textContent = data.target.port;
-                
-                // Update geolocation
-                document.getElementById('geoCountry').textContent = data.geolocation.country;
-                document.getElementById('geoLocation').textContent = `${data.geolocation.city}, ${data.geolocation.region}`;
-                document.getElementById('geoISP').textContent = data.geolocation.isp;
-                document.getElementById('geoCoords').textContent = data.geolocation.coordinates;
-                
-                // Update server info
-                document.getElementById('serverName').textContent = data.server.name;
-                document.getElementById('serverVersion').textContent = data.server.version;
-                document.getElementById('serverPoweredBy').textContent = data.server.powered_by;
-                document.getElementById('responseTime').textContent = data.server.response_time;
-                
-                // Update security headers
-                document.getElementById('headerFrame').textContent = data.server.headers['X-Frame-Options'] || 'Not set';
-                document.getElementById('headerContent').textContent = data.server.headers['X-Content-Type-Options'] || 'Not set';
-                document.getElementById('headerCSP').textContent = data.server.headers['Content-Security-Policy'] || 'Not set';
-                document.getElementById('headerXSS').textContent = data.server.headers['X-XSS-Protection'] || 'Not set';
-                
-                // Color code risk level
-                const riskElement = document.getElementById('riskLevel');
-                riskElement.className = '';
-                if (data.risk_level === 'High' || data.risk_level === 'Critical') {
-                    riskElement.classList.add('log-error');
-                } else if (data.risk_level === 'Medium') {
-                    riskElement.classList.add('log-warning');
-                } else {
-                    riskElement.classList.add('log-success');
+                if (!response.ok) {
+                    throw new Error(`API returned status: ${response.status}`);
                 }
+                
+                const data = await response.json();
+                this.terminal.log('API response received successfully', 'success');
+                return data;
+                
+            } catch (error) {
+                this.terminal.log(`API call failed: ${error.message}`, 'error');
+                throw error;
             }
-
-          async callBackendAPI(targetUrl) {
-    try {
-        this.terminal.log('Connecting to scanner API...', 'info');
-        
-        const response = await fetch(`https://scanner-rose-rho.vercel.app/api/scan`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ target: targetUrl })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
         }
-        
-        const data = await response.json();
-        return data;
-        
-    } catch (error) {
-        this.terminal.log(`API call failed: ${error.message}`, 'error');
-        // Fallback to demo data
-        return this.getDemoData(targetUrl);
+
+        // Process REAL results from backend
+        processRealResults(apiData, originalTarget) {
+            this.currentScan = apiData;
+            
+            // Update summary cards
+            document.getElementById('openPortsCount').textContent = 
+                apiData.network_info?.open_ports_count || 0;
+            document.getElementById('vulnCount').textContent = 
+                apiData.summary?.total_vulnerabilities || 0;
+            document.getElementById('serverFindings').textContent = 
+                apiData.vulnerabilities?.length > 0 ? 'Issues found' : 'Secure';
+            document.getElementById('riskLevel').textContent = 
+                apiData.summary?.risk_level || 'UNKNOWN';
+            
+            // Update target info
+            document.getElementById('infoTargetUrl').textContent = originalTarget;
+            document.getElementById('infoDomain').textContent = 
+                apiData.network_info?.domain || 'Unknown';
+            document.getElementById('infoIP').textContent = 
+                apiData.network_info?.ip || 'Unknown';
+            document.getElementById('infoPort').textContent = 
+                apiData.network_info?.port || 'Unknown';
+            
+            // Update geolocation (demo data since API doesn't provide)
+            document.getElementById('geoCountry').textContent = 
+                this.getCountryFromIP(apiData.network_info?.ip) || 'Unknown';
+            document.getElementById('geoLocation').textContent = 
+                this.getLocationFromIP(apiData.network_info?.ip) || 'Unknown';
+            document.getElementById('geoISP').textContent = 
+                this.getISPFromIP(apiData.network_info?.ip) || 'Unknown';
+            document.getElementById('geoCoords').textContent = 
+                this.getCoordsFromIP(apiData.network_info?.ip) || 'Unknown';
+            
+            // Update server info
+            document.getElementById('serverName').textContent = 
+                apiData.web_info?.server || 'Unknown';
+            document.getElementById('serverVersion').textContent = 
+                this.extractVersion(apiData.web_info?.server) || 'Unknown';
+            document.getElementById('serverPoweredBy').textContent = 
+                apiData.web_info?.headers?.['X-Powered-By'] || 'Unknown';
+            document.getElementById('responseTime').textContent = 
+                'Analyzed';
+            
+            // Update security headers
+            const headers = apiData.web_info?.security_headers || {};
+            document.getElementById('headerFrame').textContent = 
+                headers['X-Frame-Options'] || 'Not set';
+            document.getElementById('headerContent').textContent = 
+                headers['X-Content-Type-Options'] || 'Not set';
+            document.getElementById('headerCSP').textContent = 
+                headers['Content-Security-Policy'] || 'Not set';
+            document.getElementById('headerXSS').textContent = 
+                headers['X-XSS-Protection'] || 'Not set';
+            
+            // Color code risk level
+            const riskElement = document.getElementById('riskLevel');
+            riskElement.className = '';
+            const riskLevel = apiData.summary?.risk_level || 'UNKNOWN';
+            if (riskLevel === 'CRITICAL' || riskLevel === 'HIGH') {
+                riskElement.classList.add('log-error');
+            } else if (riskLevel === 'MEDIUM') {
+                riskElement.classList.add('log-warning');
+            } else {
+                riskElement.classList.add('log-success');
+            }
+            
+            // Log vulnerabilities found
+            const vulnCount = apiData.summary?.total_vulnerabilities || 0;
+            if (vulnCount > 0) {
+                this.terminal.log(`Found ${vulnCount} vulnerabilities`, 'warning');
+                apiData.vulnerabilities?.forEach(vuln => {
+                    this.terminal.log(`- ${vuln.type}: ${vuln.description}`, 'warning');
+                });
+            } else {
+                this.terminal.log('No vulnerabilities found', 'success');
+            }
+        }
+
+        // Helper methods for geolocation (demo fallback)
+        getCountryFromIP(ip) {
+            if (!ip || ip.includes('Could not resolve')) return 'Unknown';
+            // Simple IP to country mapping (demo)
+            const ipMap = {
+                '93.184.216.34': 'United States', // example.com
+                '142.250.185.174': 'United States', // google.com
+                '192.168.1.1': 'Local Network',
+                '127.0.0.1': 'Localhost'
+            };
+            return ipMap[ip] || 'Unknown';
+        }
+
+        getLocationFromIP(ip) {
+            if (!ip || ip.includes('Could not resolve')) return 'Unknown';
+            return 'Server Location';
+        }
+
+        getISPFromIP(ip) {
+            if (!ip || ip.includes('Could not resolve')) return 'Unknown';
+            return 'Network Provider';
+        }
+
+        getCoordsFromIP(ip) {
+            if (!ip || ip.includes('Could not resolve')) return 'Unknown';
+            return 'Coordinates not available';
+        }
+
+        extractVersion(serverString) {
+            if (!serverString) return 'Unknown';
+            const match = serverString.match(/\d+(\.\d+)+/);
+            return match ? match[0] : 'Unknown';
+        }
+
+        // DEMO MODE (only used when API fails)
+        loadDemoResults(targetUrl) {
+            this.terminal.log('⚠️ Using demo data (API failed)', 'warning');
+            
+            const demoData = {
+                target: originalTarget,
+                network_info: {
+                    domain: new URL(targetUrl).hostname,
+                    ip: '93.184.216.34',
+                    port: new URL(targetUrl).port || 443,
+                    open_ports_count: 3,
+                    open_ports: [
+                        { port: 80, service: 'HTTP', banner: 'nginx/1.18.0' },
+                        { port: 443, service: 'HTTPS', banner: 'Apache/2.4.41' },
+                        { port: 22, service: 'SSH', banner: 'OpenSSH_8.2p1' }
+                    ]
+                },
+                vulnerabilities: [
+                    { type: 'XSS', risk: 'MEDIUM', description: 'Potential Cross-Site Scripting' }
+                ],
+                web_info: {
+                    server: 'nginx/1.18.0',
+                    headers: { 'X-Powered-By': 'PHP/7.4' },
+                    security_headers: {
+                        'X-Frame-Options': 'SAMEORIGIN',
+                        'X-Content-Type-Options': 'nosniff',
+                        'Content-Security-Policy': 'Not set',
+                        'X-XSS-Protection': '1; mode=block'
+                    }
+                },
+                summary: {
+                    total_vulnerabilities: 1,
+                    risk_level: 'MEDIUM',
+                    status: 'demo'
+                }
+            };
+            
+            this.processRealResults(demoData, targetUrl);
+        }
+
+        downloadReport() {
+            if (!this.currentScan) {
+                this.terminal.log('No scan data to download', 'warning');
+                return;
+            }
+            
+            const dataStr = JSON.stringify(this.currentScan, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vulnerability_scan_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.terminal.log('Report downloaded successfully', 'success');
+        }
     }
-}
 
-            downloadReport() {
-                if (!this.currentScan) {
-                    this.terminal.log('No scan data to download', 'warning');
-                    return;
-                }
-                
-                const dataStr = JSON.stringify(this.currentScan, null, 2);
-                const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                const url = URL.createObjectURL(dataBlob);
-                
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `vulnerability_scan_${Date.now()}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.terminal.log('Report downloaded successfully', 'success');
+    // Initialize application
+    document.addEventListener('DOMContentLoaded', () => {
+        const scanManager = new ScanManager();
+        window.scanManager = scanManager;
+        
+        // Start scan button
+        document.getElementById('startScan').addEventListener('click', () => {
+            const targetUrl = document.getElementById('targetUrl').value.trim();
+            if (!targetUrl) {
+                scanManager.terminal.log('Please enter a target URL', 'error');
+                return;
             }
-        }
-
-        // Initialize application
-        document.addEventListener('DOMContentLoaded', () => {
-            const scanManager = new ScanManager();
-            window.scanManager = scanManager;
             
-            // Start scan button
-            document.getElementById('startScan').addEventListener('click', () => {
-                const targetUrl = document.getElementById('targetUrl').value.trim();
+            // Validate URL format
+            try {
+                new URL(targetUrl);
                 scanManager.startScan(targetUrl);
-            });
-            
-            // Demo scan button
-            document.getElementById('demoScan').addEventListener('click', () => {
-                const targetUrl = document.getElementById('targetUrl').value.trim() || 'https://example.com';
-                scanManager.startScan(targetUrl);
-            });
-            
-            // Enter key support
-            document.getElementById('targetUrl').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    document.getElementById('startScan').click();
-                }
-            });
-            
-            // Terminal controls
-            document.getElementById('clearLog').addEventListener('click', () => {
-                scanManager.terminal.clear();
-            });
-            
-            document.getElementById('copyLog').addEventListener('click', () => {
-                scanManager.terminal.copyToClipboard();
-            });
-            
-            document.getElementById('saveLog').addEventListener('click', () => {
-                scanManager.terminal.saveToFile();
-            });
-            
-            // Download report
-            document.getElementById('downloadReport').addEventListener('click', () => {
-                scanManager.downloadReport();
-            });
-            
-            // Share results
-            document.getElementById('shareResults').addEventListener('click', () => {
-                if (!scanManager.currentScan) {
-                    scanManager.terminal.log('No results to share', 'warning');
-                    return;
-                }
-                
-                const url = `https://anish-kushwaha.github.io/Scanner/vulnerabilities.html?scan=${Date.now()}`;
-                if (navigator.share) {
-                    navigator.share({
-                        title: 'Vulnerability Scan Results',
-                        text: `Scan results for ${scanManager.currentScan.target.url}`,
-                        url: url
-                    });
-                } else {
-                    navigator.clipboard.writeText(url);
-                    scanManager.terminal.log('Results link copied to clipboard', 'success');
-                }
-            });
-            
-            // Initialize terminal with welcome message
-            setTimeout(() => {
-                scanManager.terminal.log('System ready. Enter target URL to begin scanning.', 'success');
-            }, 1000);
+            } catch {
+                scanManager.terminal.log('Invalid URL format. Use: https://example.com', 'error');
+            }
         });
+        
+        // Demo scan button
+        document.getElementById('demoScan').addEventListener('click', () => {
+            const targetUrl = document.getElementById('targetUrl').value.trim() || 'https://example.com';
+            scanManager.terminal.log('Starting DEMO scan (using demo data)', 'warning');
+            scanManager.startScan(targetUrl);
+        });
+        
+        // Enter key support
+        document.getElementById('targetUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('startScan').click();
+            }
+        });
+        
+        // Terminal controls
+        document.getElementById('clearLog').addEventListener('click', () => {
+            scanManager.terminal.clear();
+        });
+        
+        document.getElementById('copyLog').addEventListener('click', () => {
+            scanManager.terminal.copyToClipboard();
+        });
+        
+        document.getElementById('saveLog').addEventListener('click', () => {
+            scanManager.terminal.saveToFile();
+        });
+        
+        // Download report
+        document.getElementById('downloadReport').addEventListener('click', () => {
+            scanManager.downloadReport();
+        });
+        
+        // Share results
+        document.getElementById('shareResults').addEventListener('click', () => {
+            if (!scanManager.currentScan) {
+                scanManager.terminal.log('No results to share', 'warning');
+                return;
+            }
+            
+            const url = `https://anish-kushwaha.github.io/Scanner/vulnerabilities.html?scan=${Date.now()}`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Vulnerability Scan Results',
+                    text: `Scan results for ${scanManager.currentScan.target}`,
+                    url: url
+                });
+            } else {
+                navigator.clipboard.writeText(url);
+                scanManager.terminal.log('Results link copied to clipboard', 'success');
+            }
+        });
+        
+        // Test backend connection on load
+        setTimeout(() => {
+            scanManager.terminal.log('System initialized', 'success');
+            scanManager.terminal.log(`Backend: ${scanManager.backendUrl}`, 'info');
+            scanManager.terminal.log('Enter target URL and click "INITIATE SCAN"', 'info');
+            
+            // Optional: Test backend connection
+            // scanManager.terminal.log('Testing backend connection...', 'info');
+            // fetch(`${scanManager.backendUrl}/health`)
+            //     .then(r => r.json())
+            //     .then(data => scanManager.terminal.log('Backend connected ✓', 'success'))
+            //     .catch(err => scanManager.terminal.log('Backend connection failed', 'error'));
+        }, 500);
+    });
     </script>
 </body>
   </html>
