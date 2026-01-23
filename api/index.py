@@ -12,14 +12,19 @@ requests.packages.urllib3.disable_warnings()
 
 class handler(BaseHTTPRequestHandler):
     
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+    
     def do_GET(self):
         if self.path == '/':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
-            # Add these headers in your Python code:
-self.send_header('Access-Control-Allow-Origin', '*')
-self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
             self.end_headers()
             
             response = {
@@ -39,14 +44,27 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         elif self.path == '/health':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
             self.end_headers()
             self.wfile.write(json.dumps({
                 "status": "healthy",
                 "timestamp": datetime.now().isoformat()
             }).encode())
             
+        elif self.path == '/api/scan':
+            # Demo response for GET request to /api/scan
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "message": "Use POST method with JSON: {\"target\": \"url\"}",
+                "example": {"target": "https://example.com"}
+            }).encode())
+            
         else:
             self.send_response(404)
+            self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
             self.end_headers()
     
     def do_POST(self):
@@ -59,7 +77,14 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                 target = data.get('target', '').strip()
                 
                 if not target:
-                    self.send_error(400, "Target URL is required")
+                    self.send_response(400)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "error": "Target URL is required",
+                        "example": {"target": "https://example.com"}
+                    }).encode())
                     return
                 
                 print(f"[SCAN] Starting vulnerability scan for: {target}")
@@ -70,13 +95,32 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                 # Send response
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
                 self.end_headers()
                 self.wfile.write(json.dumps(scan_results, indent=2).encode())
                 
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "error": "Invalid JSON format",
+                    "example": {"target": "https://example.com"}
+                }).encode())
+                
             except Exception as e:
-                self.send_error(500, f"Scanner error: {str(e)}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "error": f"Scanner error: {str(e)}",
+                    "target": target if 'target' in locals() else "unknown"
+                }).encode())
         else:
             self.send_response(404)
+            self.send_header('Access-Control-Allow-Origin', '*')  # CORS header
             self.end_headers()
     
     # ================= VULNERABILITY SCANNER =================
@@ -106,13 +150,14 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             # 1. Get IP and network info
             ip = self.resolve_dns(domain)
             results["network_info"]["domain"] = domain
-            results["network_info"]["ip"] = ip
+            results["network_info"]["ip"] = ip if ip else "Could not resolve"
             results["network_info"]["port"] = port
             
-            if ip:
+            if ip and ip != "Could not resolve":
                 # 2. Port scan
                 open_ports = self.port_scan(ip)
                 results["network_info"]["open_ports"] = open_ports
+                results["network_info"]["open_ports_count"] = len(open_ports)
                 
                 # Check for vulnerable services
                 for port_info in open_ports:
@@ -122,7 +167,7 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                             "service": port_info["service"],
                             "port": port_info["port"],
                             "risk": "MEDIUM",
-                            "description": f"{port_info['service'].upper()} service exposed"
+                            "description": f"{port_info['service'].upper()} service exposed on default port"
                         })
             
             # 3. Web vulnerability checks
@@ -136,7 +181,8 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                     "type": "SQL Injection",
                     "risk": "CRITICAL",
                     "description": sqli_results["description"],
-                    "payload": sqli_results["payload"]
+                    "payload": sqli_results["payload"],
+                    "url": sqli_results.get("url", target_url)
                 })
             
             # 5. XSS test
@@ -146,7 +192,8 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                     "type": "Cross-Site Scripting (XSS)",
                     "risk": "HIGH",
                     "description": xss_results["description"],
-                    "payload": xss_results["payload"]
+                    "payload": xss_results["payload"],
+                    "url": xss_results.get("url", target_url)
                 })
             
             # 6. Directory brute force
@@ -156,7 +203,8 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                     "type": "Exposed Directories",
                     "risk": "MEDIUM",
                     "description": f"Found {len(exposed_dirs)} exposed directories",
-                    "directories": exposed_dirs
+                    "directories": exposed_dirs,
+                    "count": len(exposed_dirs)
                 })
             
             # 7. Security headers check
@@ -164,15 +212,24 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             results["web_info"]["security_headers"] = headers_check
             
             # Summary
+            vuln_count = len(results["vulnerabilities"])
             results["summary"] = {
-                "total_vulnerabilities": len(results["vulnerabilities"]),
+                "total_vulnerabilities": vuln_count,
                 "risk_level": self.calculate_risk_level(results["vulnerabilities"]),
-                "scan_duration": "completed"
+                "scan_duration": "completed",
+                "open_ports": results["network_info"].get("open_ports_count", 0),
+                "status": "success"
             }
             
         except Exception as e:
             results["error"] = str(e)
             results["scan_status"] = "partial"
+            results["summary"] = {
+                "status": "error",
+                "error": str(e),
+                "total_vulnerabilities": 0,
+                "risk_level": "UNKNOWN"
+            }
         
         return results
     
@@ -180,6 +237,8 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         """Resolve domain to IP"""
         try:
             return socket.gethostbyname(domain)
+        except socket.gaierror:
+            return None
         except:
             return None
     
@@ -190,16 +249,29 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         for port in ports:
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(1)
+                sock.settimeout(2)
                 result = sock.connect_ex((ip, port))
                 sock.close()
                 
                 if result == 0:
                     service = self.get_service_name(port)
+                    # Try to get banner
+                    banner = ""
+                    try:
+                        banner_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        banner_sock.settimeout(2)
+                        banner_sock.connect((ip, port))
+                        banner_sock.send(b"HEAD / HTTP/1.0\r\n\r\n")
+                        banner = banner_sock.recv(1024).decode('utf-8', errors='ignore')[:100]
+                        banner_sock.close()
+                    except:
+                        banner = "No banner"
+                    
                     open_ports.append({
                         "port": port,
                         "service": service,
-                        "status": "open"
+                        "status": "open",
+                        "banner": banner.strip()
                     })
             except:
                 pass
@@ -229,11 +301,21 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             results["server"] = server
             
             # Check for outdated servers
+            vuln_warnings = []
             if "Apache/2.2" in server:
-                results["warning"] = "Outdated Apache version detected"
-            elif "PHP/5." in server:
-                results["warning"] = "Outdated PHP version detected"
+                vuln_warnings.append("Outdated Apache version detected (pre-2.4)")
+            if "PHP/5." in server:
+                vuln_warnings.append("Outdated PHP version detected")
+            if "nginx/1." in server:
+                vuln_warnings.append("Outdated nginx version detected")
+            
+            if vuln_warnings:
+                results["warnings"] = vuln_warnings
                 
+        except requests.exceptions.Timeout:
+            results["error"] = "Connection timeout"
+        except requests.exceptions.ConnectionError:
+            results["error"] = "Connection failed"
         except Exception as e:
             results["error"] = str(e)
         
@@ -258,6 +340,7 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                     return {
                         "vulnerable": True,
                         "payload": payload,
+                        "url": test_url,
                         "description": f"SQL Injection possible with payload: {payload}"
                     }
             except:
@@ -276,6 +359,7 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                 return {
                     "vulnerable": True,
                     "payload": payload,
+                    "url": test_url,
                     "description": "XSS vulnerability detected"
                 }
         except:
@@ -288,7 +372,8 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         common_dirs = [
             "/admin", "/wp-admin", "/phpmyadmin", "/administrator",
             "/backup", "/config", "/.env", "/config.php",
-            "/login", "/admin/login", "/dashboard"
+            "/login", "/admin/login", "/dashboard", "/phpinfo.php",
+            "/test.php", "/debug", "/api", "/swagger", "/graphql"
         ]
         
         exposed = []
@@ -301,7 +386,8 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
                 if response.status_code == 200:
                     exposed.append({
                         "url": full_url,
-                        "status": response.status_code
+                        "status": response.status_code,
+                        "directory": directory
                     })
             except:
                 continue
@@ -334,6 +420,7 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             
             results["missing_count"] = len(missing)
             results["missing_headers"] = missing
+            results["score"] = f"{(len(security_headers) - len(missing))}/{len(security_headers)}"
             
             return results
             
@@ -347,12 +434,13 @@ self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         
         critical_count = sum(1 for v in vulnerabilities if v.get("risk") == "CRITICAL")
         high_count = sum(1 for v in vulnerabilities if v.get("risk") == "HIGH")
+        medium_count = sum(1 for v in vulnerabilities if v.get("risk") == "MEDIUM")
         
         if critical_count > 0:
             return "CRITICAL"
         elif high_count > 0:
             return "HIGH"
-        elif len(vulnerabilities) > 0:
+        elif medium_count > 0:
             return "MEDIUM"
         else:
             return "LOW"
