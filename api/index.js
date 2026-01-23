@@ -1,7 +1,7 @@
 const express = require('express');
 const qrcode = require('qrcode');
 const jsQR = require('jsqr');
-const { createCanvas, loadImage } = require('canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
