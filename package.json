@@ -1,5 +1,10 @@
 {
-  "dependencies": {
-    "express": "^4.18.2"
+  "name": "vulnerability-scanner",
+  "version": "1.0.0",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "start": "node index.js"
   }
 }
