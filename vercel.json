@@ -4,7 +4,7 @@
     {
       "src": "index.js",
       "use": "@vercel/node"
-      // REMOVE the "config" section
+      // REMOVE THE ENTIRE "config" SECTION
     }
   ],
   "routes": [
