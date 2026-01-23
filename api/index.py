@@ -242,8 +242,21 @@ class handler(BaseHTTPRequestHandler):
         except:
             return None
     
-    def port_scan(self, ip, ports=[21, 22, 23, 80, 443, 3306, 3389, 8080, 8443]):
-        """Scan common ports"""
+  # Scan common ranges
+def get_scan_ports(mode="fast"):
+    if mode == "fast":
+        # 50 most common ports
+        return [21,22,23,25,53,80,110,111,135,139,143,443,445,993,995,
+                1723,3306,3389,5900,8080,8443]
+    elif mode == "normal":
+        # 100 common ports
+        return list(range(1, 1025))[:100]  # First 100 ports
+    elif mode == "full":
+        # All well-known ports (0-1023)
+        return list(range(1, 1024))
+    elif mode == "extensive":
+        # All registered ports (0-49151)
+        return list(range(1, 49152))
         open_ports = []
         
         for port in ports:
