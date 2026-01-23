@@ -1706,29 +1706,6 @@
     }
 }
 
-// Add demo data fallback
-getDemoData(targetUrl) {
-    // Return demo scan data structure
-    return {
-        target: targetUrl,
-        timestamp: new Date().toISOString(),
-        scan_type: "Demo Scan (API Unavailable)",
-        vulnerabilities: [],
-        network_info: {
-            domain: new URL(targetUrl).hostname,
-            ip: "127.0.0.1",
-            port: new URL(targetUrl).port || 80,
-            open_ports: []
-        },
-        summary: {
-            total_vulnerabilities: 0,
-            risk_level: "LOW",
-            scan_duration: "demo",
-            open_ports: 0,
-            status: "demo_mode"
-        }
-    };
-}
             downloadReport() {
                 if (!this.currentScan) {
                     this.terminal.log('No scan data to download', 'warning');
