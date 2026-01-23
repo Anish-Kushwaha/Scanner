@@ -1,0 +1,8 @@
+{
+  "orgId": "team_123",
+  "projectId": "prj_123",
+  "settings": {
+    "framework": null,
+    "runtime": "python"
+  }
+}
