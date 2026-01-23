@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.9">
+    <title>🛡️ Vulnerability Scanner v3.2 | Vulnerabilities</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        /* EXACT SAME CSS AS HOME PAGE - NO CHANGES */
+        :root {
+            --primary-color: #0a1128;
+            --secondary-color: #0d1b45;
+            --accent-color: #00e5ff;
+            --accent-glow: rgba(0, 229, 255, 0.4);
+            --danger-color: #ff1744;
+            --warning-color: #ff9100;
+            --success-color: #00e676;
+            --text-primary: #e0f7fa;
+            --text-secondary: #8fa8b5;
+            --card-bg: rgba(13, 27, 69, 0.3);
+            --border-color: rgba(0, 229, 255, 0.3);
+            --terminal-bg: rgba(10, 17, 40, 0.95);
+            --glow-shadow: 0 0 20px var(--accent-glow);
+            --gradient-bg: linear-gradient(135deg, #0a1128 0%, #0d1b45 50%, #091022 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background: var(--gradient-bg);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* NAVBAR - EXACTLY LIKE HOME PAGE */
+        .navbar {
+            background: rgba(10, 17, 40, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 40px;
+            position: fixed;
+            width: 95%;
+            top: 0;
+            z-index: 900;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .nav-brand i { color: var(--accent-color); font-size: 1.8rem; }
+
+        .nav-links { display: flex; gap: 30px; align-items: center; }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 5px 0;
+        }
+
+        .nav-link:hover { color: var(--accent-color); }
+        .nav-link.active { color: var(--accent-color); }
+
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-color);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .nav-btn {
+            background: linear-gradient(45deg, var(--secondary-color), var(--accent-color));
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px var(--accent-glow);
+        }
+
+        /* MAIN CONTAINER */
+        .main-container {
+            max-width: 1400px;
+            margin: 80px auto 40px;
+            padding: 0 20px;
+        }
+
+        /* HERO SECTION */
+        .hero-section {
+            text-align: center;
+            padding: 60px 0;
+            position: relative;
+            margin-bottom: 40px;
+        }
+
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            filter: blur(100px);
+            opacity: 0.3;
+            z-index: -1;
+        }
+
+        .glitch {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 4rem;
+            font-weight: 900;
+            position: relative;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, var(--text-primary), var(--accent-color), var(--text-primary));
+            background-size: 200% auto;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: textShine 3s linear infinite;
+            text-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        @keyframes textShine { to { background-position: 200% center; } }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            letter-spacing: 3px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* SCAN STATUS CARD */
+        .scan-status {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 30px auto;
+            max-width: 800px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .scan-status i {
+            color: var(--accent-color);
+            font-size: 2.5rem;
+        }
+
+        .status-content h3 {
+            color: var(--accent-color);
+            font-family: 'Orbitron', sans-serif;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .status-content p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* INFO CARDS - MATCHING HOME PAGE */
+        .info-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title i {
+            color: var(--accent-color);
+            font-size: 1.8rem;
+        }
+
+        .card-title h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: var(--accent-color);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .info-row {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .info-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-value {
+            color: var(--text-primary);
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1rem;
+            word-break: break-all;
+        }
+
+        /* VULNERABILITY ITEMS */
+        .vuln-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 6px solid;
+        }
+
+        .vuln-critical { border-left-color: var(--danger-color); }
+        .vuln-high { border-left-color: var(--warning-color); }
+        .vuln-medium { border-left-color: #ffeb3b; }
+        .vuln-low { border-left-color: var(--success-color); }
+
+        .vuln-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .vuln-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+        }
+
+        .vuln-icon {
+            color: var(--accent-color);
+            font-size: 1.5rem;
+        }
+
+        .risk-badge {
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .risk-critical { background: rgba(255, 23, 68, 0.2); color: var(--danger-color); border: 1px solid var(--danger-color); }
+        .risk-high { background: rgba(255, 145, 0, 0.2); color: var(--warning-color); border: 1px solid var(--warning-color); }
+        .risk-medium { background: rgba(255, 235, 59, 0.2); color: #ffeb3b; border: 1px solid #ffeb3b; }
+        .risk-low { background: rgba(0, 230, 118, 0.2); color: var(--success-color); border: 1px solid var(--success-color); }
+
+        .vuln-desc {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .vuln-details {
+            background: rgba(13, 27, 69, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        /* PORTS GRID */
+        .ports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .port-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .port-card:hover {
+            transform: scale(1.05);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .port-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+
+        .port-service {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* EMPTY STATE */
+        .empty-state {
+            text-align: center;
+            padding: 60px 40px;
+            background: var(--card-bg);
+            border: 2px dashed var(--border-color);
+            border-radius: 20px;
+            margin: 40px 0;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: var(--accent-color);
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            color: var(--text-secondary);
+            font-family: 'Orbitron', sans-serif;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        /* BUTTONS */
+        .action-btn {
+            padding: 15px 30px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 10px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.95rem;
+            margin: 10px;
+        }
+
+        .action-btn:hover {
+            background: var(--secondary-color);
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+        }
+
+        /* FOOTER - EXACTLY LIKE HOME PAGE */
+        .scanner-footer {
+            margin-top: 60px;
+            padding-top: 30px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .meta { text-align: left; font-size: 0.9rem; line-height: 1.6; }
+        .signature { font-style: italic; color: var(--accent-color); margin-bottom: 10px; font-size: 1rem; }
+        .symbol { font-size: 2.5rem; color: var(--accent-color); animation: float 3s ease-in-out infinite; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .navbar { padding: 15px 20px; flex-direction: column; gap: 15px; }
+            .nav-links { flex-wrap: wrap; justify-content: center; gap: 15px; }
+            .main-container { margin-top: 140px; }
+            .glitch { font-size: 2.5rem; }
+            .footer-content { flex-direction: column; text-align: center; }
+            .meta { text-align: center; }
+        }
+
+        @media (max-width: 480px) {
+            .glitch { font-size: 2rem; }
+            .info-card { padding: 20px; }
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: var(--primary-color); }
+        ::-webkit-scrollbar-thumb { background: var(--accent-color); border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-glow); }
+    </style>
+</head>
+<body>
+    <!-- NAVBAR - EXACTLY LIKE HOME PAGE -->
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand">
+            <i class="fas fa-shield-alt"></i>
+            VULNERABILITY SCANNER
+        </a>
+        
+        <div class="nav-links">
+            <a href="index.html" class="nav-link">
+                <i class="fas fa-home"></i> HOME
+            </a>
+            <a href="vulnerabilities.html" class="nav-link active">
+                <i class="fas fa-bug"></i> VULNERABILITIES
+            </a>
+            <a href="disclosure.html" class="nav-link">
+                <i class="fas fa-exclamation-triangle"></i> DISCLOSURE
+            </a>
+            <a href="creator.html" class="nav-link">
+                <i class="fas fa-user-secret"></i> CREATOR
+            </a>
+            <a href="https://scanner-rose-rho.vercel.app/" target="_blank" class="nav-btn">
+                <i class="fas fa-rocket"></i> LIVE API
+            </a>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- HERO SECTION -->
+        <section class="hero-section">
+            <h1 class="glitch">VULNERABILITY ANALYSIS</h1>
+            <div class="subtitle">
+                Detailed security vulnerabilities, open ports, admin panels, and technical findings
+            </div>
+        </section>
+
+        <!-- SCAN STATUS -->
+        <div class="scan-status">
+            <i class="fas fa-satellite-dish"></i>
+            <div class="status-content">
+                <h3>📡 CONNECTED TO LIVE SCANNER</h3>
+                <p>Backend API: <strong>https://scanner-rose-rho.vercel.app</strong></p>
+                <p>All scan data is fetched from the live vulnerability scanner</p>
+            </div>
+        </div>
+
+        <!-- NO DATA STATE -->
+        <div id="noDataState" class="empty-state">
+            <i class="fas fa-database"></i>
+            <h3>NO SCAN DATA AVAILABLE</h3>
+            <p>You need to perform a scan first to view vulnerability details.</p>
+            <p>Go to the Home page, enter a target URL, and start scanning.</p>
+            <br>
+            <a href="index.html" class="action-btn">
+                <i class="fas fa-arrow-left"></i> GO TO SCANNER
+            </a>
+            <button onclick="loadDemoData()" class="action-btn">
+                <i class="fas fa-vial"></i> LOAD DEMO DATA
+            </button>
+        </div>
+
+        <!-- SCAN RESULTS (Hidden by default) -->
+        <div id="scanResults" style="display: none;">
+            <!-- TARGET INFO -->
+            <div class="info-card">
+                <div class="card-title">
+                    <i class="fas fa-crosshairs"></i>
+                    <h3>TARGET INFORMATION</h3>
+                </div>
+                <div class="info-grid">
+                    <div class="info-row">
+                        <div class="info-label">Target URL</div>
+                        <div class="info-value" id="targetUrl">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">IP Address</div>
+                        <div class="info-value" id="targetIP">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Port</div>
+                        <div class="info-value" id="targetPort">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Domain</div>
+                        <div class="info-value" id="targetDomain">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GEOLOCATION -->
+            <div class="info-card">
+                <div class="card-title">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <h3>GEOLOCATION</h3>
+                </div>
+                <div class="info-grid">
+                    <div class="info-row">
+                        <div class="info-label">Country</div>
+                        <div class="info-value" id="geoCountry">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">City/Region</div>
+                        <div class="info-value" id="geoLocation">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">ISP</div>
+                        <div class="info-value" id="geoISP">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Coordinates</div>
+                        <div class="info-value" id="geoCoords">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SERVER INFO -->
+            <div class="info-card">
+                <div class="card-title">
+                    <i class="fas fa-server"></i>
+                    <h3>SERVER INFORMATION</h3>
+                </div>
+                <div class="info-grid">
+                    <div class="info-row">
+                        <div class="info-label">Web Server</div>
+                        <div class="info-value" id="serverName">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Powered By</div>
+                        <div class="info-value" id="serverPoweredBy">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Technologies</div>
+                        <div class="info-value" id="serverTech">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Response Code</div>
+                        <div class="info-value" id="serverResponse">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OPEN PORTS -->
+            <div class="info-card">
+                <div class="card-title">
+                    <i class="fas fa-network-wired"></i>
+                    <h3>OPEN PORTS <span id="portsCount">(0)</span></h3>
+                </div>
+                <div class="ports-grid" id="portsContainer">
+                    <!-- Ports loaded here -->
+                </div>
+            </div>
+
+            <!-- VULNERABILITIES -->
+            <div class="info-card">
+                <div class="card-title">
+                    <i class="fas fa-bug"></i>
+                    <h3>DETECTED VULNERABILITIES <span id="vulnCount">(0)</span></h3>
+                </div>
+                <div id="vulnerabilitiesContainer">
+                    <!-- Vulnerabilities loaded here -->
+                </div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div style="text-align: center; margin: 40px 0;">
+                <button onclick="downloadReport()" class="action-btn">
+                    <i class="fas fa-download"></i> DOWNLOAD REPORT
+                </button>
+                <a href="index.html" class="action-btn">
+                    <i class="fas fa-redo"></i> NEW SCAN
+                </a>
+            </div>
+        </div>
+
+        <!-- FOOTER - EXACTLY LIKE HOME PAGE -->
+        <footer class="scanner-footer">
+            <div class="footer-content">
+                <div class="meta">
+                    <div class="signature">"I don't follow the universe — I reprogram it."</div>
+                    <div>© 2026 Anish Kushwaha • All rights reserved</div>
+                    <div style="margin-top: 10px; font-size: 0.8rem; color: var(--text-secondary);">
+                        This tool is for educational and authorized security testing purposes only.
+                    </div>
+                </div>
+                <div class="symbol">
+                    ⚚Ⓐ⚚
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- CLEAN JAVASCRIPT -->
+    <script>
+    class VulnerabilityManager {
+        constructor() {
+            this.backendUrl = 'https://scanner-rose-rho.vercel.app';
+            this.scanData = null;
+            this.init();
+        }
+
+        init() {
+            // Load saved scan data from home page
+            const savedData = localStorage.getItem('vulnScanData');
+            if (savedData) {
+                try {
+                    this.scanData = JSON.parse(savedData);
+                    this.displayData();
+                } catch (e) {
+                    console.error('Error loading saved data:', e);
+                }
+            }
+            
+            // Check URL for scan target
+            const urlParams = new URLSearchParams(window.location.search);
+            const target = urlParams.get('target');
+            if (target) {
+                this.fetchScan(target);
+            }
+        }
+
+        async fetchScan(targetUrl) {
+            try {
+                document.getElementById('noDataState').innerHTML = `
+                    <i class="fas fa-sync-alt fa-spin"></i>
+                    <h3>SCANNING TARGET...</h3>
+                    <p>Fetching data from: ${targetUrl}</p>
+                `;
+
+                const response = await fetch(`${this.backendUrl}/api/scan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: targetUrl })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+                
+                const data = await response.json();
+                this.scanData = data;
+                localStorage.setItem('vulnScanData', JSON.stringify(data));
+                this.displayData();
+                
+            } catch (error) {
+                document.getElementById('noDataState').innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>API ERROR</h3>
+                    <p>Failed to scan: ${error.message}</p>
+                    <p>Loading demo data instead...</p>
+                `;
+                setTimeout(() => this.loadDemoData(), 1000);
+            }
+        }
+
+        displayData() {
+            document.getElementById('noDataState').style.display = 'none';
+            document.getElementById('scanResults').style.display = 'block';
+            
+            // Target info
+            document.getElementById('targetUrl').textContent = this.scanData.target || '-';
+            document.getElementById('targetIP').textContent = this.scanData.network_info?.ip || '-';
+            document.getElementById('targetPort').textContent = this.scanData.network_info?.port || '-';
+            document.getElementById('targetDomain').textContent = this.scanData.network_info?.domain || '-';
+            
+            // Geolocation
+            const geo = this.scanData.geolocation || {};
+            document.getElementById('geoCountry').textContent = geo.country || '-';
+            document.getElementById('geoLocation').textContent = geo.city || geo.region || '-';
+            document.getElementById('geoISP').textContent = geo.isp || '-';
+            document.getElementById('geoCoords').textContent = 
+                (geo.latitude && geo.longitude) ? `${geo.latitude}, ${geo.longitude}` : '-';
+            
+            // Server info
+            const web = this.scanData.web_info || {};
+            document.getElementById('serverName').textContent = web.server_info?.server || '-';
+            document.getElementById('serverPoweredBy').textContent = web.server_info?.powered_by || '-';
+            document.getElementById('serverTech').textContent = 
+                (this.scanData.technologies || []).join(', ') || '-';
+            document.getElementById('serverResponse').textContent = 
+                web.response_info?.status_code ? `HTTP ${web.response_info.status_code}` : '-';
+            
+            // Open ports
+            this.loadPorts();
+            
+            // Vulnerabilities
+            this.loadVulnerabilities();
+        }
+
+        loadPorts() {
+            const ports = this.scanData.network_info?.open_ports || [];
+            const container = document.getElementById('portsContainer');
+            container.innerHTML = '';
+            
+            document.getElementById('portsCount').textContent = `(${ports.length})`;
+            
+            if (ports.length === 0) {
+                container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-secondary)">No open ports detected</div>`;
+                return;
+            }
+            
+            ports.forEach(port => {
+                const portCard = document.createElement('div');
+                portCard.className = 'port-card';
+                portCard.innerHTML = `
+                    <div class="port-number">${port.port}</div>
+                    <div class="port-service">${port.service}</div>
+                `;
+                container.appendChild(portCard);
+            });
+        }
+
+        loadVulnerabilities() {
+            const vulns = this.scanData.vulnerabilities || [];
+            const container = document.getElementById('vulnerabilitiesContainer');
+            container.innerHTML = '';
+            
+            document.getElementById('vulnCount').textContent = `(${vulns.length})`;
+            
+            if (vulns.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:var(--success-color)">
+                        <i class="fas fa-check-circle" style="font-size:3rem"></i>
+                        <h3>NO VULNERABILITIES FOUND</h3>
+                        <p>Target appears secure</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            vulns.forEach((vuln, index) => {
+                const vulnDiv = document.createElement('div');
+                vulnDiv.className = `vuln-item vuln-${vuln.risk?.toLowerCase() || 'medium'}`;
+                
+                vulnDiv.innerHTML = `
+                    <div class="vuln-header">
+                        <div class="vuln-title">
+                            <i class="fas fa-bug vuln-icon"></i>
+                            <span>${vuln.type || 'Vulnerability'} #${index + 1}</span>
+                        </div>
+                        <span class="risk-badge risk-${vuln.risk?.toLowerCase() || 'medium'}">
+                            ${vuln.risk || 'MEDIUM'}
+                        </span>
+                    </div>
+                    <div class="vuln-desc">${vuln.description || 'No description'}</div>
+                    ${vuln.payload ? `<div class="vuln-details"><strong>Payload:</strong> ${vuln.payload}</div>` : ''}
+                    ${vuln.recommendation ? `<div class="vuln-details" style="border-color:var(--success-color)"><strong>Fix:</strong> ${vuln.recommendation}</div>` : ''}
+                `;
+                
+                container.appendChild(vulnDiv);
+            });
+        }
+
+        loadDemoData() {
+            const demoData = {
+                target: "https://example.com",
+                network_info: {
+                    domain: "example.com",
+                    ip: "93.184.216.34",
+                    port: 443,
+                    open_ports: [
+                        { port: 80, service: "HTTP" },
+                        { port: 443, service: "HTTPS" },
+                        { port: 22, service: "SSH" }
+                    ]
+                },
+                geolocation: {
+                    country: "United States",
+                    city: "Cambridge",
+                    isp: "Fastly"
+                },
+                web_info: {
+                    server_info: { server: "nginx/1.18.0" }
+                },
+                technologies: ["nginx", "PHP"],
+                vulnerabilities: [
+                    {
+                        type: "SQL Injection",
+                        risk: "CRITICAL",
+                        description: "SQL injection in login parameter",
+                        payload: "' OR '1'='1",
+                        recommendation: "Use parameterized queries"
+                    },
+                    {
+                        type: "XSS Vulnerability",
+                        risk: "HIGH",
+                        description: "Cross-site scripting in search",
+                        recommendation: "Implement output encoding"
+                    }
+                ]
+            };
+            
+            this.scanData = demoData;
+            localStorage.setItem('vulnScanData', JSON.stringify(demoData));
+            this.displayData();
+        }
+
+        downloadReport() {
+            if (!this.scanData) {
+                alert('No data to download');
+                return;
+            }
+            
+            const report = {
+                timestamp: new Date().toISOString(),
+                scanner: "Vulnerability Scanner v3.2",
+                creator: "Anish Kushwaha",
+                ...this.scanData
+            };
+            
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scan_report_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        window.vulnManager = new VulnerabilityManager();
+    });
+
+    // Global functions
+    function loadDemoData() {
+        if (window.vulnManager) {
+            window.vulnManager.loadDemoData();
+        }
+    }
+
+    function downloadReport() {
+        if (window.vulnManager) {
+            window.vulnManager.downloadReport();
+        }
+    }
+    </script>
+</body>
+</html>
