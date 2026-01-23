@@ -16,6 +16,10 @@ class handler(BaseHTTPRequestHandler):
         if self.path == '/':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
+            # Add these headers in your Python code:
+self.send_header('Access-Control-Allow-Origin', '*')
+self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.end_headers()
             
             response = {
