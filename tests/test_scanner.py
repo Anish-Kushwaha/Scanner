@@ -134,7 +134,7 @@ class ScanFlowTests(unittest.TestCase):
     def test_redirect_to_private_address_is_blocked(self, _resolve, request_once):
         request_once.return_value = {
             "status_code": 302,
-            "headers": {"location": "http://127.0.0.1/admin"},
+            "headers": {"location": "https://127.0.0.1/admin"},
             "set_cookies": [],
             "body": b"",
             "truncated": False,
