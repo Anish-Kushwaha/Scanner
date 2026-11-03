@@ -29,5 +29,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Check Python syntax
+        run: python -m py_compile api/index.py tests/test_scanner.py tests/check_frontend.py
       - name: Run regression tests
         run: python -m unittest discover -s tests -v
+      - name: Check inline frontend JavaScript
+        run: python tests/check_frontend.py
