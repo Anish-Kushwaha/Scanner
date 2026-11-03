@@ -30,7 +30,10 @@ RATE_WINDOW_SECONDS = 60
 RATE_LIMIT_REQUESTS = 10
 MAX_RATE_LIMIT_KEYS = 4096
 
-DEFAULT_ALLOWED_ORIGINS = {"https://anish-kushwaha.github.io"}
+DEFAULT_ALLOWED_ORIGINS = {
+    "https://anish-kushwaha.github.io",
+    "https://scanner-rose-rho.vercel.app",
+}
 ALLOWED_ORIGINS = frozenset(
     origin.strip()
     for origin in os.environ.get(
