@@ -146,6 +146,7 @@ def execute_job(job_id: str, request: dict):
         results["network"] = run_nmap(
             nmap_target, addresses, profile,
             bool(request.get("os_detect")), bool(request.get("udp")),
+            request.get("scan_config") if isinstance(request.get("scan_config"), dict) else {},
         )
     if "web" in modules or "tls" in modules:
         if target.startswith(("http://", "https://")):
