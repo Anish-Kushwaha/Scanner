@@ -459,10 +459,10 @@
         <!-- LOADING STATE -->
         <div id="loadingState" class="loading-state">
             <i class="fas fa-sync-alt fa-spin"></i>
-            <h3 style="color: var(--accent-color);">FETCHING REAL SCAN DATA...</h3>
+            <h3 style="color: var(--accent-color);">LOADING SAVED ASSESSMENT...</h3>
             <p>Connecting to backend: <strong>https://scanner-rose-rho.vercel.app</strong></p>
             <p style="color: var(--warning-color); margin-top: 20px;">
-                ⚠️ NO DEMO DATA - ONLY REAL SCANNING RESULTS
+                ⚠️ LIVE AND SYNTHETIC REPORTS ARE CLEARLY LABELED
             </p>
         </div>
 
@@ -859,7 +859,7 @@
 
         downloadReport() {
             if (!this.scanData) {
-                alert('NO REAL SCAN DATA TO DOWNLOAD');
+                alert('No assessment report is available to download.');
                 return;
             }
             
