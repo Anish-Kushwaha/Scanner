@@ -1,3 +1,5 @@
+import io
+import json
 import socket
 import unittest
 from unittest.mock import patch
@@ -6,6 +8,7 @@ from api.index import (
     ScanExecutionError,
     TargetValidationError,
     analyze_security_posture,
+    handler,
     normalize_target,
     resolve_public_addresses,
     scan_target,
@@ -142,6 +145,86 @@ class ScanFlowTests(unittest.TestCase):
         }
         with self.assertRaises(TargetValidationError):
             scan_target("https://example.com")
+
+
+
+class ApiHandlerTests(unittest.TestCase):
+    def make_handler(self, path, headers=None, body=b""):
+        instance = object.__new__(handler)
+        instance.path = path
+        instance.headers = headers or {}
+        instance.rfile = io.BytesIO(body)
+        instance.wfile = io.BytesIO()
+        instance.client_address = ("198.51.100.17", 12345)
+        instance.responses = []
+        instance.response_headers = {}
+        instance.send_response = lambda status, message=None: instance.responses.append(status)
+        instance.send_header = lambda key, value: instance.response_headers.__setitem__(key.lower(), value)
+        instance.end_headers = lambda: None
+        return instance
+
+    def test_health_route_normalizes_trailing_slash_and_query(self):
+        request = self.make_handler("/health/?check=1")
+        request.do_GET()
+        self.assertEqual(request.responses[0], 200)
+        payload = json.loads(request.wfile.getvalue())
+        self.assertEqual(payload["status"], "healthy")
+        self.assertEqual(payload["version"], "4.0.0")
+
+    def test_scan_endpoint_get_is_method_not_allowed(self):
+        request = self.make_handler("/api/scan")
+        request.do_GET()
+        self.assertEqual(request.responses[0], 405)
+        self.assertEqual(request.response_headers["allow"], "POST, OPTIONS")
+
+    def test_post_requires_approved_frontend_origin(self):
+        payload = json.dumps({
+            "target": "https://example.com",
+            "authorization_confirmed": True,
+        }).encode()
+        request = self.make_handler(
+            "/api/scan",
+            {"Origin": "https://attacker.example", "Content-Length": str(len(payload))},
+            payload,
+        )
+        request.do_POST()
+        self.assertEqual(request.responses[0], 403)
+
+    def test_post_requires_explicit_authorization_attestation(self):
+        payload = json.dumps({"target": "https://example.com"}).encode()
+        request = self.make_handler(
+            "/api/scan",
+            {"Origin": "https://anish-kushwaha.github.io", "Content-Length": str(len(payload))},
+            payload,
+        )
+        request.do_POST()
+        self.assertEqual(request.responses[0], 403)
+
+    def test_post_rejects_private_destination_without_connecting(self):
+        payload = json.dumps({
+            "target": "http://127.0.0.1",
+            "authorization_confirmed": True,
+        }).encode()
+        request = self.make_handler(
+            "/api/scan",
+            {"Origin": "https://anish-kushwaha.github.io", "Content-Length": str(len(payload))},
+            payload,
+        )
+        request.do_POST()
+        self.assertEqual(request.responses[0], 400)
+        self.assertIn("blocked", json.loads(request.wfile.getvalue())["error"].lower())
+
+    def test_post_rejects_oversized_request_body(self):
+        request = self.make_handler(
+            "/api/scan",
+            {
+                "Origin": "https://anish-kushwaha.github.io",
+                "Content-Length": "9000",
+            },
+            b"",
+        )
+        request.do_POST()
+        self.assertEqual(request.responses[0], 413)
 
 
 if __name__ == "__main__":
