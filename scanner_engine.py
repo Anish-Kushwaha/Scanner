@@ -426,7 +426,7 @@ def assess_local_path(path: str | None, findings: list[Finding]) -> dict[str, An
          "Prefer readOnlyRootFilesystem: true where practical."),
     ]
     secret_patterns = [
-        re.compile(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\\"]?([A-Za-z0-9_./+=-]{12,})")
+        re.compile(r"""(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['"]?([A-Za-z0-9_./+=-]{12,})""")
     ]
     for file in root.rglob("*"):
         if not file.is_file() or file.is_symlink() or any(p in file.parts for p in (".git", "node_modules", ".venv", "venv")):
