@@ -613,7 +613,9 @@
     <script>
     class RealVulnerabilityScanner {
         constructor() {
-            this.backendUrl = 'https://scanner-rose-rho.vercel.app';
+            this.backendUrl = window.location.hostname === 'anish-kushwaha.github.io'
+                ? 'https://scanner-rose-rho.vercel.app'
+                : window.location.origin;
             this.scanData = null;
             this.init();
         }
