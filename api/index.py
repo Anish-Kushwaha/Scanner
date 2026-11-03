@@ -713,7 +713,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             self._send_json(502, {"error": "The private scanning worker could not be reached.", "code": "worker_unreachable"})
 
     def _worker_get(self):
-        if not self._origin_allowed():
+        if self.headers.get("Origin") and not self._origin_allowed():
             self._send_json(403, {"error": "Origin is not allowed."})
             return
         params = parse_qs(urlsplit(self.path).query)
