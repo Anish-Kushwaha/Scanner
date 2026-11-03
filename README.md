@@ -8,6 +8,10 @@
 
 ## Product scope
 
+The repository now also includes a separate private Linux worker: [`scanner_engine.py`](scanner_engine.py), documented in [`SCANNER_ENGINE.md`](SCANNER_ENGINE.md). It adds allowlist-gated Nmap network discovery/service detection, bounded web crawling and configuration checks, optional passive OWASP ZAP baseline, local configuration/secret heuristics, optional Trivy integration, and JSON/CSV worker reports. It is not executed inside Vercel Functions and is not yet connected to the hosted dashboard through a private authenticated job API.
+
+## Product scope
+
 Scanner inspects one public HTTP(S) page and reports observable security configuration signals:
 
 - HTTP response security headers: Content Security Policy, HSTS, clickjacking controls, MIME sniffing, Referrer Policy and Permissions Policy.
@@ -102,3 +106,8 @@ Only assess systems you own or have explicit permission to assess. The confirmat
 ## License
 
 MIT. See LICENSE.md.
+
+
+## Private worker
+
+See [SCANNER_ENGINE.md](SCANNER_ENGINE.md) for installation, scope configuration, commands, implemented modules, and integrations still required. The worker requires an explicit `SCANNER_ALLOWED_TARGETS` allowlist and a per-run `--authorized` attestation. Keep it on a private Linux host; do not expose its CLI or host network scanner directly to the public internet.
