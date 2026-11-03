@@ -1,0 +1,4 @@
+# Scanner worker runtime dependencies
+# The core engine and HTTP job server use Python's standard library.
+# Nmap is installed in the worker container image.
+# Optional: install Trivy using the official vendor installation instructions.

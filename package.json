@@ -1,0 +1,12 @@
+{
+  "name": "scanner",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@vercel/sandbox": "3.9.1"
+  }
+}

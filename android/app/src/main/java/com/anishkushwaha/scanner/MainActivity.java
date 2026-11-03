@@ -23,7 +23,9 @@ import android.view.Window;
 import android.view.WindowManager;
 
 public class MainActivity extends Activity {
-    private static final String APP_URL = "https://scanner-rose-rho.vercel.app/";
+    private static final String APP_URL = "https://scanner-rose-rho.vercel.app/vulnerabilities.html";
+    private static final int FILE_CHOOSER_REQUEST = 7401;
+    private android.webkit.ValueCallback<Uri[]> uploadCallback;
     private WebView webView;
     private LinearLayout errorPanel;
 
@@ -53,12 +55,30 @@ public class MainActivity extends Activity {
         settings.setUserAgentString(settings.getUserAgentString() + " ScannerAndroid/1.0");
         webView.setBackgroundColor(Color.rgb(5, 12, 28));
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onShowFileChooser(WebView view,
+                    android.webkit.ValueCallback<Uri[]> filePathCallback,
+                    FileChooserParams fileChooserParams) {
+                if (uploadCallback != null) uploadCallback.onReceiveValue(null);
+                uploadCallback = filePathCallback;
+                try {
+                    Intent intent = fileChooserParams.createIntent();
+                    startActivityForResult(intent, FILE_CHOOSER_REQUEST);
+                    return true;
+                } catch (Exception error) {
+                    uploadCallback = null;
+                    return false;
+                }
+            }
+        });
         webView.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String host = uri.getHost() == null ? "" : uri.getHost();
-                if ("scanner-rose-rho.vercel.app".equalsIgnoreCase(host)) return false;
+                if ("scanner-lbpki7lh7-anish-kushwahas-projects-bc957f54.vercel.app".equalsIgnoreCase(host)
+                        || "scanner-rose-rho.vercel.app".equalsIgnoreCase(host)
+                        || "scanner-anish-kushwahas-projects-bc957f54.vercel.app".equalsIgnoreCase(host)
+                        || "scanner-git-main-anish-kushwahas-projects-bc957f54.vercel.app".equalsIgnoreCase(host)) return false;
                 if ("https".equalsIgnoreCase(uri.getScheme())) {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -90,6 +110,18 @@ public class MainActivity extends Activity {
 
         if (state == null) webView.loadUrl(APP_URL);
         else webView.restoreState(state);
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == FILE_CHOOSER_REQUEST) {
+            if (uploadCallback != null) {
+                Uri[] results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+                uploadCallback.onReceiveValue(results);
+                uploadCallback = null;
+            }
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     private LinearLayout buildErrorPanel() {
@@ -148,6 +180,10 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        if (uploadCallback != null) {
+            uploadCallback.onReceiveValue(null);
+            uploadCallback = null;
+        }
         if (webView != null) {
             webView.stopLoading();
             webView.removeAllViews();

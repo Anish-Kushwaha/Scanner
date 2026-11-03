@@ -2,7 +2,7 @@ name: Android APK
 
 on:
   push:
-    branches: [main, rebuild-v1]
+    branches: [main, rebuild-v1, scanner-platform-v2]
     paths: ["android/**", ".github/workflows/android-apk.yml"]
   pull_request:
     paths: ["android/**", ".github/workflows/android-apk.yml"]

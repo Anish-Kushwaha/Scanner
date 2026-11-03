@@ -1,105 +1,13 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080d18"><meta name="description" content="Scanner — a professional, non-invasive website security posture assessment platform.">
-<title>Scanner — Security Posture</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-:root{color-scheme:dark;--bg:#080d18;--panel:#101827;--panel2:#131e30;--line:#243248;--text:#edf4ff;--muted:#91a2bb;--cyan:#49d7e8;--cyan2:#1aa9c1;--green:#49d7a2;--amber:#f4bd65;--red:#ff7185;--radius:18px;--shadow:0 24px 70px #0005}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 80% -20%,#153148 0,transparent 40%),var(--bg);color:var(--text);font:15px/1.55 "DM Sans",sans-serif;min-height:100vh}button,input{font:inherit}button{cursor:pointer}.shell{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.sidebar{border-right:1px solid var(--line);padding:28px 18px;display:flex;flex-direction:column;gap:34px;background:#0b1220c9}.brand{display:flex;align-items:center;gap:12px;padding:0 10px}.brand-mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#55e3ee,#1a91ba);display:grid;place-items:center;color:#07121d;font-size:20px;font-weight:900;box-shadow:0 8px 28px #37cfe333}.brand strong{font-size:17px;letter-spacing:.08em}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.16em;text-transform:uppercase}.nav-label{padding:0 12px;color:#667994;font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}.nav{display:grid;gap:6px}.nav a{color:#9eafc7;text-decoration:none;padding:11px 13px;border-radius:11px;display:flex;gap:12px;align-items:center;font-weight:600}.nav a.active,.nav a:hover{background:#15243a;color:var(--text)}.nav a.active{box-shadow:inset 2px 0 var(--cyan)}.nav-icon{width:18px;text-align:center;color:var(--cyan)}.side-note{margin-top:auto;border:1px solid var(--line);background:#0e1929;border-radius:14px;padding:14px;color:var(--muted);font-size:12px}.side-note strong{display:block;color:var(--text);margin-bottom:5px}.side-footer{color:#60728c;font-size:11px;padding:0 10px}.main{min-width:0;padding:30px clamp(18px,4vw,58px) 56px;max-width:1500px;width:100%;margin:auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:34px}.eyebrow{color:var(--cyan);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:800}.topbar h1{font-size:clamp(25px,3vw,36px);letter-spacing:-.04em;margin:6px 0 0}.status{display:inline-flex;align-items:center;gap:9px;padding:8px 12px;border:1px solid #245348;border-radius:999px;color:#91e8c7;font-size:12px;font-weight:700;background:#10251f}.dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 12px var(--green)}.intro{color:var(--muted);margin:8px 0 0;max-width:650px}.panel{background:linear-gradient(145deg,#121e30,#0e1726);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}.scan-panel{padding:clamp(20px,3vw,32px);position:relative;overflow:hidden}.scan-panel:after{content:"";position:absolute;width:300px;height:300px;border:1px solid #49d7e80e;border-radius:50%;right:-130px;top:-160px;box-shadow:0 0 0 30px #49d7e805,0 0 0 60px #49d7e803;pointer-events:none}.panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px;position:relative;z-index:1}.panel-heading h2{font-size:19px;margin:0;letter-spacing:-.02em}.panel-heading p{color:var(--muted);margin:5px 0 0;font-size:13px}.tag{border:1px solid #245c68;color:#8be9f2;background:#102b37;border-radius:8px;padding:5px 9px;font-size:10px;font-weight:800;letter-spacing:.12em;white-space:nowrap}.form-row{display:flex;gap:10px;position:relative;z-index:1}.url-wrap{flex:1;min-width:0;position:relative}.url-wrap span{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--cyan);font-family:"DM Mono",monospace}.url-wrap input{width:100%;height:54px;border-radius:11px;border:1px solid #33445d;background:#091321;color:var(--text);padding:0 16px 0 43px;outline:none}.url-wrap input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #49d7e81c}.primary{border:0;border-radius:11px;padding:0 23px;background:linear-gradient(135deg,#56e3eb,#20a8c1);color:#06131c;font-weight:800;letter-spacing:.02em;min-height:54px;display:flex;align-items:center;gap:10px;justify-content:center;transition:.2s}.primary:hover{transform:translateY(-1px);filter:brightness(1.07)}.primary:disabled{opacity:.55;cursor:wait;transform:none}.consent{display:flex;align-items:flex-start;gap:10px;color:var(--muted);font-size:12px;margin:15px 0 0;max-width:900px}.consent input{accent-color:var(--cyan);margin-top:3px}.hint{font-size:11px;color:#71849e;margin-top:10px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:18px 0}.stat{padding:17px 18px}.stat-label{font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;font-weight:800}.stat-value{font-size:25px;font-weight:800;letter-spacing:-.04em;margin-top:8px}.stat-sub{font-size:11px;color:#70829b;margin-top:2px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:32px 0 13px}.section-head h2{font-size:16px;margin:0}.section-head p{font-size:12px;color:var(--muted);margin:3px 0 0}.grid-two{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}.content-card{padding:21px}.content-card h3{font-size:14px;margin:0 0 14px}.feature{display:flex;gap:13px;padding:13px 0;border-top:1px solid #223047}.feature:first-of-type{border-top:0;padding-top:0}.feature-icon{width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:#163044;color:var(--cyan);display:grid;place-items:center}.feature strong{display:block;font-size:13px}.feature p{margin:3px 0 0;color:var(--muted);font-size:12px}.scope-list{display:grid;gap:11px;color:#a9b8cc;font-size:12px}.scope-list span{color:var(--green);margin-right:8px}.scope-list .no{color:var(--amber)}.results{display:none;margin-top:24px}.result-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.result-head h2{margin:0;font-size:20px}.actions{display:flex;gap:8px}.secondary{border:1px solid var(--line);background:#111d2e;color:var(--text);border-radius:9px;padding:9px 13px;font-size:12px;font-weight:700}.secondary:hover{border-color:var(--cyan)}.finding{padding:16px;border-top:1px solid var(--line);display:grid;grid-template-columns:auto 1fr;gap:13px}.finding:first-child{border-top:0}.severity{font-size:9px;font-weight:900;letter-spacing:.1em;padding:5px 7px;border-radius:6px;height:max-content;background:#273448;color:#c4d0df}.severity.HIGH,.severity.CRITICAL{background:#3b202b;color:#ff9baa}.severity.MEDIUM{background:#392e1e;color:#f6ca80}.severity.LOW{background:#18352f;color:#83e4bf}.severity.INFO{background:#1b3042;color:#91d8ed}.finding strong{font-size:13px}.finding p{font-size:12px;color:var(--muted);margin:4px 0}.finding small{color:#8ea1bb;font-size:11px}.empty{padding:30px;text-align:center;color:var(--muted);font-size:13px}.error{display:none;margin-top:14px;border:1px solid #6b3440;background:#2a1821;color:#ffb1bd;padding:13px 15px;border-radius:10px;font-size:13px}.loading{display:none;margin-top:14px;color:var(--cyan);font-size:12px}.footer{border-top:1px solid var(--line);margin-top:48px;padding-top:20px;display:flex;justify-content:space-between;gap:12px;color:#63758e;font-size:11px}.mono{font-family:"DM Mono",monospace}.sample{font-size:12px;color:var(--cyan);background:none;border:0;padding:0;text-decoration:underline;text-underline-offset:3px}.sample:hover{color:#a1f6ff}
-@media(max-width:900px){.shell{grid-template-columns:1fr}.sidebar{display:none}.main{padding-top:23px}.grid-two{grid-template-columns:1fr}}@media(max-width:620px){.topbar{align-items:flex-start}.status{font-size:10px;padding:7px 9px}.form-row{flex-direction:column}.primary{width:100%}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{padding:14px}.stat-value{font-size:22px}.footer{flex-direction:column}.panel-heading{flex-direction:column}.actions{width:100%}.actions button{flex:1}}
-</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080d18">
+<meta http-equiv="refresh" content="0;url=/vulnerabilities.html">
+<title>Scanner — Security Operations Centre</title>
+<link rel="canonical" href="/vulnerabilities.html">
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#080d18;color:#edf4ff;font:15px system-ui,sans-serif}.box{max-width:520px;padding:32px;text-align:center;border:1px solid #25364d;border-radius:18px;background:#101827}a{color:#49d7e8}</style>
 </head>
-<body>
-<div class="shell">
-<aside class="sidebar">
-  <div class="brand"><div class="brand-mark">S</div><div><strong>SCANNER</strong><small>Security intelligence</small></div></div>
-  <div><div class="nav-label">Workspace</div><nav class="nav"><a class="active" href="#overview"><span class="nav-icon">◈</span>Overview</a><a href="#assessment"><span class="nav-icon">⌕</span>New assessment</a><a href="#methodology"><span class="nav-icon">◎</span>Methodology</a><a href="vulnerabilities.html"><span class="nav-icon">▤</span>Reports</a></nav></div>
-  <div class="side-note"><strong>Authorized testing only</strong>Only assess websites and infrastructure you own or have explicit permission to test. Public scans are intentionally non-invasive.</div>
-  <div class="side-footer">⚚Ⓐ⚚ &nbsp; • &nbsp; Anish Enterprises</div>
-</aside>
-<main class="main" id="overview">
-  <header class="topbar"><div><div class="eyebrow">Security assessment platform</div><h1>Website security, clearly assessed.</h1><p class="intro">A focused view of your public-facing web security posture. Evidence-led findings, transparent limitations, and no fabricated results.</p></div><div class="status"><i class="dot"></i> Service interface</div></header>
-
-  <section class="panel scan-panel" id="assessment">
-    <div class="panel-heading"><div><h2>Start a new assessment</h2><p>Enter a public website URL to inspect its HTTP security configuration.</p></div><span class="tag">PASSIVE · LOW IMPACT</span></div>
-    <form id="scanForm">
-      <div class="form-row"><label class="url-wrap"><span>↗</span><input id="target" name="target" type="url" placeholder="https://example.com" autocomplete="url" maxlength="2048" required></label><button class="primary" id="scanButton" type="submit"><span>Run assessment</span><b>→</b></button></div>
-      <label class="consent"><input id="authorization" type="checkbox" required><span>I confirm that I own this target or have explicit authorization to perform this assessment.</span></label>
-      <div class="hint">Only HTTP/HTTPS on standard ports · One page fetched · Query strings excluded · No exploit payloads or brute force</div>
-    </form>
-    <div class="loading" id="loading" role="status" aria-live="polite">◌ &nbsp; Connecting to the scanner and assessing the target…</div>
-    <div class="error" id="error" role="alert"></div>
-  </section>
-
-  <section class="stats" aria-label="Assessment capabilities">
-    <article class="panel stat"><div class="stat-label">Assessment mode</div><div class="stat-value">Passive</div><div class="stat-sub">HTTP posture review</div></article>
-    <article class="panel stat"><div class="stat-label">Request scope</div><div class="stat-value">1 page</div><div class="stat-sub">Bounded response size</div></article>
-    <article class="panel stat"><div class="stat-label">Transport</div><div class="stat-value">TLS</div><div class="stat-sub">Certificate validation</div></article>
-    <article class="panel stat"><div class="stat-label">Reporting</div><div class="stat-value">Evidence</div><div class="stat-sub">Findings with remediation</div></article>
-  </section>
-
-  <section class="grid-two" id="methodology">
-    <article class="panel content-card"><h3>What Scanner evaluates</h3>
-      <div class="feature"><div class="feature-icon">◇</div><div><strong>HTTP security headers</strong><p>Content Security Policy, HSTS, clickjacking controls, MIME sniffing, referrer and permissions policies.</p></div></div>
-      <div class="feature"><div class="feature-icon">⌑</div><div><strong>Cookie attributes</strong><p>Secure, HttpOnly and SameSite flags, with cookie values excluded from reports.</p></div></div>
-      <div class="feature"><div class="feature-icon">⌁</div><div><strong>TLS and response posture</strong><p>Certificate verification, expiry window, response status, redirects and limited server metadata.</p></div></div>
-    </article>
-    <article class="panel content-card"><h3>Safety boundaries</h3><div class="scope-list"><div><span>✓</span>Public IP destinations only</div><div><span>✓</span>DNS validation and pinned connections</div><div><span>✓</span>Short timeouts and limited redirects</div><div><span class="no">—</span>No port scanning or service enumeration</div><div><span class="no">—</span>No SQLi/XSS payloads or exploitation</div><div><span class="no">—</span>No directory brute force or file probing</div></div></article>
-  </section>
-
-  <section class="results" id="results" aria-live="polite">
-    <div class="result-head"><div><div class="eyebrow">Assessment output</div><h2 id="resultTitle">Scan report</h2></div><div class="actions"><button class="secondary" id="downloadJson">Download JSON</button><button class="secondary" id="openReport">Full report ↗</button></div></div>
-    <div class="stats" id="resultStats"></div>
-    <article class="panel content-card"><h3>Findings & recommendations</h3><div id="findings"></div></article>
-    <article class="panel content-card" style="margin-top:13px"><h3>Technical details</h3><div id="technical" class="scope-list"></div></article>
-  </section>
-  <footer class="footer"><span>© 2026 Anish Kushwaha · Anish Enterprises</span><span>Designed for responsible security assessment</span></footer>
-</main></div>
-<script>
-const $=id=>document.getElementById(id);
-let latestReport=null;
-function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n}
-function stat(label,value,sub){const a=el("article","panel stat");a.append(el("div","stat-label",label),el("div","stat-value",value),el("div","stat-sub",sub));return a}
-function renderReport(report){
- latestReport=report;localStorage.setItem("scanner.latestReport",JSON.stringify(report));
- $("resultTitle").textContent=report.target||"Assessment";
- const summary=report.summary||{},net=report.network_info||{};
- const stats=$("resultStats");stats.replaceChildren(
- stat("Risk level",summary.risk_level||"UNKNOWN","Evidence-based classification"),
- stat("Findings",String(summary.total_vulnerabilities??report.vulnerabilities?.length??0),"Observed configuration issues"),
- stat("HTTP status",String(report.web_info?.response_info?.status_code??"—"),"Final response"),
- stat("Open ports","Not tested","Port scanning is disabled")
- );
- const findings=$("findings");findings.replaceChildren();
- const list=Array.isArray(report.vulnerabilities)?report.vulnerabilities:[];
- if(!list.length)findings.append(el("div","empty","No issues were detected in the checks performed. This is not proof that the target is secure."));
- for(const f of list){const row=el("div","finding"),sev=el("span","severity "+String(f.risk||"INFO").toUpperCase(),String(f.risk||"INFO").toUpperCase()),body=el("div");body.append(el("strong","",f.type||"Finding"),el("p","",f.description||"No description provided."),el("small","", "Recommendation: "+(f.recommendation||"Review the configuration.")));row.append(sev,body);findings.append(row)}
- const tech=$("technical");tech.replaceChildren();
- const fields=[["Scan ID",report.scan_id],["Target",report.target],["Resolved address",net.ip],["Protocol",net.protocol],["Server",report.web_info?.server],["TLS version",report.web_info?.tls?.version],["Duration",summary.scan_duration_ms==null?"—":summary.scan_duration_ms+" ms"],["Port scan","Not performed"]];
- for(const [k,v] of fields){const row=el("div");row.style.display="flex";row.style.justifyContent="space-between";row.style.gap="15px";row.append(el("span","",k),el("span","mono",v==null?"Not available":String(v)));tech.append(row)}
- $("results").style.display="block";$("results").scrollIntoView({behavior:"smooth",block:"start"});
-}
-$("scanForm").addEventListener("submit",async event=>{
- event.preventDefault();$("error").style.display="none";
- const target=$("target").value.trim();
- if(!$("authorization").checked){$("error").textContent="Please confirm that you are authorized to assess this target.";$("error").style.display="block";return}
- $("scanButton").disabled=true;$("loading").style.display="block";$("results").style.display="none";
- try{
-  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),18000);
-  let response;
-  try{response=await fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({target,authorization_confirmed:true}),signal:controller.signal,cache:"no-store"})}finally{clearTimeout(timeout)}
-  const data=await response.json().catch(()=>({error:"The service returned an invalid response."}));
-  if(!response.ok)throw new Error(data.error||"Assessment failed with HTTP "+response.status);
-  if(data.scan_status!=="completed"||!Array.isArray(data.vulnerabilities))throw new Error("The scanner returned an incomplete report. No result has been saved.");
-  renderReport(data);
- }catch(err){$("error").textContent=err.name==="AbortError"?"The request timed out. Please retry.":(err.message||"Unable to complete the assessment.");$("error").style.display="block"}
- finally{$("loading").style.display="none";$("scanButton").disabled=false}
-});
-$("downloadJson").addEventListener("click",()=>{if(!latestReport)return;const blob=new Blob([JSON.stringify(latestReport,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="scanner-report-"+Date.now()+".json";a.click();URL.revokeObjectURL(url)});
-$("openReport").addEventListener("click",()=>{if(latestReport)localStorage.setItem("scanner.latestReport",JSON.stringify(latestReport));location.href="vulnerabilities.html"});
-(async()=>{try{const r=await fetch("/health",{cache:"no-store"});if(r.ok){const h=await r.json();if(h.status==="healthy")document.querySelector(".status").lastChild.textContent=" Service online"}}catch(_){}})();
-</script>
-</body></html>
+<body><main class="box"><h1>SCANNER</h1><p>Opening the Security Operations Centre…</p><p><a href="/vulnerabilities.html">Continue to Scanner</a></p></main><script>location.replace("/vulnerabilities.html");</script></body>
+</html>
