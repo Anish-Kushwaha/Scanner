@@ -47,7 +47,7 @@ Example JSON request:
       "authorization_confirmed": true
     }
 
-The authorization flag is an explicit user attestation, not identity verification or strong authentication. Browser-origin checks are a CORS control, not an authentication boundary; non-browser clients can forge an Origin header. The in-process rate limit is best-effort and is not a durable shared quota across serverless instances. Before offering unrestricted public or commercial access, configure a shared edge rate limit and/or authenticated API credentials, usage monitoring and abuse handling.
+The authorization flag is an explicit user attestation, not identity verification or strong authentication. Browser-origin checks are a CORS control, not an authentication boundary; non-browser clients can forge an Origin header. Vercel Firewall is enabled for this project with a shared fixed-window rule limiting POST requests to /api/scan to 10 requests per client IP per 60 seconds. The in-process rate limit is an additional best-effort safeguard, not a durable shared quota. The authorization flag and browser-origin checks are not strong authentication. Before offering unrestricted public or commercial access, add authenticated API credentials, usage monitoring and an abuse-response process.
 
 ### Status codes
 
