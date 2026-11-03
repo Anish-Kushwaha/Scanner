@@ -68,3 +68,14 @@ The Scanner worker runs in a named, persistent Vercel Sandbox. The Vercel server
 The current worker scope is deliberately restricted to the exact Scanner preview hostname and `scanme.nmap.org` for safe Nmap validation. Add only targets for which the operator has written authorization. The gateway passes the configured `SCANNER_ALLOWED_TARGETS` allowlist into the worker every time it starts.
 
 **Lifecycle and cost:** a session is not an always-on server. It stops at its configured timeout; the next dashboard API request resumes the named sandbox from its latest snapshot and starts the worker again. This provides on-demand availability without a permanently running VM, but the first request after a stop can take longer and compute/snapshot/network usage may be billable. It is not an always-on production SLA or a distributed job queue.
+
+
+## Preview environment checklist
+
+For the `scanner-platform-v2` Preview branch, configure:
+
+- `SCANNER_WORKER_TOKEN` as a sensitive variable (32+ random characters).
+- `SCANNER_ALLOWED_TARGETS` as a comma-separated exact-host allowlist.
+- Enable Vercel project OIDC token generation so the Node gateway can use the Sandbox SDK without a long-lived Vercel API token.
+
+The `/api/worker` route is served by `api/worker.js` and requires the `@vercel/sandbox` dependency in the root `package.json`. Keep this route mapped to the Node function in `vercel.json`; the legacy Python API remains responsible for `/api/scan` and `/health`. Redeploy after changing Preview environment variables or Sandbox gateway code.
