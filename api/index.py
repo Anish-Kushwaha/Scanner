@@ -5,7 +5,7 @@ brute forcing, or TCP port enumeration. It fetches only the requested page,
 validates every DNS result, pins the connection to a validated public IP, and
 revalidates every redirect before following it.
 """
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
 from datetime import datetime, timezone
 import http.client
 import http.server
@@ -26,8 +26,9 @@ MAX_BODY_BYTES = 8192
 MAX_RESPONSE_BYTES = 64 * 1024
 MAX_REDIRECTS = 2
 REQUEST_TIMEOUT_SECONDS = 2.5
-RATE_WINDOW_SECONDS = 15 * 60
-RATE_LIMIT_REQUESTS = 5
+RATE_WINDOW_SECONDS = 60
+RATE_LIMIT_REQUESTS = 10
+MAX_RATE_LIMIT_KEYS = 4096
 
 DEFAULT_ALLOWED_ORIGINS = {"https://anish-kushwaha.github.io"}
 ALLOWED_ORIGINS = frozenset(
@@ -40,7 +41,7 @@ ALLOWED_ORIGINS = frozenset(
 )
 
 _rate_lock = threading.Lock()
-_rate_events = defaultdict(deque)
+_rate_events = OrderedDict()
 
 
 class TargetValidationError(ValueError):
@@ -584,15 +585,25 @@ def _rate_limit_key(request_handler):
 
 
 def _check_rate_limit(key):
+    """Best-effort per-runtime fallback; Vercel WAF is the shared edge limiter."""
     now = time.monotonic()
     with _rate_lock:
-        events = _rate_events[key]
+        events = _rate_events.pop(key, deque())
         while events and now - events[0] >= RATE_WINDOW_SECONDS:
             events.popleft()
+
         if len(events) >= RATE_LIMIT_REQUESTS:
             retry_after = max(1, int(RATE_WINDOW_SECONDS - (now - events[0])))
+            _rate_events[key] = events
             return False, retry_after
+
         events.append(now)
+        _rate_events[key] = events
+
+        # Bound memory even if requests arrive from many one-off source IPs.
+        while len(_rate_events) > MAX_RATE_LIMIT_KEYS:
+            _rate_events.popitem(last=False)
+
         return True, 0
 
 
