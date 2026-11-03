@@ -401,3 +401,35 @@ SOFTWARE.
 Stay curious, stay secure.
 
 </div>
+
+
+## Android app (APK)
+
+The repository includes a native Android WebView container for the live Scanner web application.
+
+### Build locally
+
+Requirements: JDK 17 and Android SDK (API 35).
+
+```bash
+cd android
+gradle --no-daemon assembleDebug
+```
+
+The debug APK is generated at:
+
+`android/app/build/outputs/apk/debug/app-debug.apk`
+
+### Build from GitHub Actions
+
+Open **Actions → Android APK → Run workflow** (or push a change under `android/`). Download the `scanner-android-debug` artifact from the completed workflow run. Pull requests also compile the Android app.
+
+The Android shell loads the existing hosted Scanner UI at `https://scanner-rose-rho.vercel.app/`. The backend must remain deployed and reachable for live scanning. The APK does not bundle a private backend or credentials.
+
+### Android security and behavior
+
+- HTTPS only; cleartext traffic, mixed content, local file access, and content access are disabled.
+- External HTTPS navigation is handed to the Android browser.
+- The app handles offline/network errors with a retry screen.
+- Debug APKs are unsigned and intended for testing. A distributable signed release requires a signing key managed outside the repository (for example, GitHub Actions secrets).
+- Use the scanner only against systems you own or are explicitly authorized to assess.
