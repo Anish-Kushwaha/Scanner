@@ -348,43 +348,89 @@ def run_nmap(target: str, addresses: list[str], profile: str, os_detect: bool, u
         if hasattr(os, "geteuid") and os.geteuid() != 0:
             raise ToolError("UDP scanning requires elevated worker privileges.")
         args.extend(["-sU", "--top-ports", "20"])
-    # Resolve and validate before Nmap; use the exact hostname so virtual hosting and
-    # service probes retain host context, while the allowlist is checked above.
-    args.append(target)
-    try:
-        proc = subprocess.run(args, capture_output=True, text=True, timeout=NMAP_TIMEOUT, check=False)
-    except subprocess.TimeoutExpired as exc:
-        raise ToolError("Nmap exceeded the configured six-minute scan timeout.") from exc
-    if proc.returncode not in (0, 1):
-        raise ToolError(f"Nmap failed: {proc.stderr[-1200:]}")
+
+    # Never let Nmap resolve a hostname a second time after allowlist validation:
+    # DNS could change between validation and Nmap's own lookup. Scan only the
+    # validated IP answers. CIDR targets are already explicitly contained in the
+    # configured network allowlist and can be passed as a network expression.
+    if "/" in target:
+        scan_targets = [target]
+    else:
+        scan_targets = list(dict.fromkeys(addresses))
+    if not scan_targets:
+        raise ToolError("No validated IP addresses were available for Nmap.")
+
+    targets_by_family = {4: [], 6: []}
+    for candidate in scan_targets:
+        try:
+            address = ipaddress.ip_address(candidate.split("/", 1)[0])
+        except ValueError as exc:
+            raise ToolError("Nmap targets must be validated IP addresses or CIDR networks.") from exc
+        targets_by_family[address.version].append(candidate)
+
     try:
         import xml.etree.ElementTree as ET
-        root = ET.fromstring(proc.stdout)
-    except Exception as exc:
-        raise ToolError("Nmap returned invalid XML output.") from exc
-    hosts = []
-    for node in root.findall("host"):
-        addresses_found = [{"type": x.get("addrtype"), "address": x.get("addr")} for x in node.findall("address")]
-        ports = []
-        for port in node.findall("./ports/port"):
-            state = port.find("state")
-            service = port.find("service")
-            ports.append({"protocol": port.get("protocol"), "port": int(port.get("portid")),
-                          "state": state.get("state") if state is not None else "unknown",
-                          "reason": state.get("reason") if state is not None else None,
-                          "service": service.get("name") if service is not None else None,
-                          "product": service.get("product") if service is not None else None,
-                          "version": service.get("version") if service is not None else None,
-                          "tunnel": service.get("tunnel") if service is not None else None})
-        osmatch = node.find("./os/osmatch")
-        hosts.append({"addresses": addresses_found, "status": (node.find("status").get("state") if node.find("status") is not None else "unknown"),
-                      "hostname": (node.find("./hostnames/hostname").get("name") if node.find("./hostnames/hostname") is not None else None),
-                      "os_guess": osmatch.get("name") if osmatch is not None else None, "ports": ports})
+        hosts = []
+        for family in (4, 6):
+            family_targets = targets_by_family[family]
+            if not family_targets:
+                continue
+            command = list(args)
+            if family == 6:
+                command.insert(1, "-6")
+            command.extend(family_targets)
+            proc = subprocess.run(command, capture_output=True, text=True,
+                                  timeout=NMAP_TIMEOUT, check=False)
+            if proc.returncode not in (0, 1):
+                raise ToolError(f"Nmap failed: {proc.stderr[-1200:]}")
+            try:
+                root = ET.fromstring(proc.stdout)
+            except Exception as exc:
+                raise ToolError("Nmap returned invalid XML output.") from exc
+            for node in root.findall("host"):
+                addresses_found = [
+                    {"type": item.get("addrtype"), "address": item.get("addr")}
+                    for item in node.findall("address")
+                ]
+                ports = []
+                for port in node.findall("./ports/port"):
+                    state = port.find("state")
+                    service = port.find("service")
+                    ports.append({
+                        "protocol": port.get("protocol"),
+                        "port": int(port.get("portid")),
+                        "state": state.get("state") if state is not None else "unknown",
+                        "reason": state.get("reason") if state is not None else None,
+                        "service": service.get("name") if service is not None else None,
+                        "product": service.get("product") if service is not None else None,
+                        "version": service.get("version") if service is not None else None,
+                        "tunnel": service.get("tunnel") if service is not None else None,
+                    })
+                osmatch = node.find("./os/osmatch")
+                hostname_node = node.find("./hostnames/hostname")
+                hostname = hostname_node.get("name") if hostname_node is not None else None
+                if hostname is None and "/" not in target:
+                    try:
+                        ipaddress.ip_address(target)
+                    except ValueError:
+                        hostname = target
+                hosts.append({
+                    "addresses": addresses_found,
+                    "status": (node.find("status").get("state")
+                               if node.find("status") is not None else "unknown"),
+                    "hostname": hostname,
+                    "os_guess": osmatch.get("name") if osmatch is not None else None,
+                    "ports": ports,
+                })
+    except subprocess.TimeoutExpired as exc:
+        raise ToolError("Nmap exceeded the configured six-minute scan timeout.") from exc
+
     return {"available": True, "status": "completed", "engine": "Nmap",
             "arguments_profile": profile, "addresses_resolved": addresses,
             "hosts": hosts, "host_count": len(hosts),
-            "open_ports_count": sum(1 for h in hosts for p in h["ports"] if p["state"] == "open"),
-            "nse_scripts": "not_run", "note": "No exploit or brute-force NSE scripts were executed."}
+            "open_ports_count": sum(1 for host in hosts for port in host["ports"] if port["state"] == "open"),
+            "nse_scripts": "not_run",
+            "note": "Nmap scanned only IP addresses validated by the worker allowlist. No exploit or brute-force NSE scripts were executed."}
 
 
 def run_zap_baseline(target: str, enabled: bool) -> dict[str, Any]:
