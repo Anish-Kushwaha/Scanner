@@ -1,0 +1,1 @@
+-keep class com.anishkushwaha.scanner.MainActivity { *; }
