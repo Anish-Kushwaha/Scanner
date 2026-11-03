@@ -32,6 +32,7 @@ HOST = os.environ.get("SCANNER_WORKER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("SCANNER_WORKER_PORT", "8787"))
 TOKEN = os.environ.get("SCANNER_WORKER_TOKEN", "")
 JOB_DIR = Path(os.environ.get("SCANNER_JOB_DIR", "/var/lib/scanner/jobs"))
+TOKEN_FILE = Path(os.environ.get("SCANNER_WORKER_TOKEN_FILE", str(JOB_DIR / ".worker-token")))
 MAX_REQUEST = 8 * 1024 * 1024
 MAX_ARCHIVE = 2_500_000
 MAX_EXTRACTED = 25 * 1024 * 1024
@@ -258,11 +259,19 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def authorized(self):
-        return bool(TOKEN) and self.headers.get("Authorization", "") == "Bearer " + TOKEN
+        try:
+            token = TOKEN_FILE.read_text(encoding="utf-8").strip()
+        except OSError:
+            token = TOKEN
+        return bool(token) and self.headers.get("Authorization", "") == "Bearer " + token
 
     def do_GET(self):
         if self.path == "/health":
-            self.send_json(200, {"status": "healthy", "service": "Scanner private worker"})
+            self.send_json(200, {
+                "status": "healthy",
+                "service": "Scanner private worker",
+                "nmap_privileges": bool(hasattr(os, "geteuid") and os.geteuid() == 0),
+            })
             return
         if not self.authorized():
             self.send_json(401, {"error": "Worker authentication required."})
