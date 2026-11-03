@@ -72,5 +72,49 @@ class NmapTargetSelectionTests(unittest.TestCase):
         self.assertEqual(call.args[1], [str(ip) for ip in network.hosts()])
 
 
+class JobLifecycleTests(unittest.TestCase):
+    def make_job(self, job_id, status, created_at):
+        return {"job_id": job_id, "status": status, "created_at": created_at}
+
+    def test_recovery_marks_interrupted_jobs_failed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with patch.object(worker_server, "JOB_DIR", root):
+                worker_server.write_job(self.make_job(
+                    "11111111-1111-4111-8111-111111111111", "queued", "2026-11-03T09:00:00Z"
+                ))
+                worker_server.write_job(self.make_job(
+                    "22222222-2222-4222-8222-222222222222", "running", "2026-11-03T09:01:00Z"
+                ))
+                worker_server.write_job(self.make_job(
+                    "33333333-3333-4333-8333-333333333333", "completed", "2026-11-03T09:02:00Z"
+                ))
+                worker_server.recover_interrupted_jobs()
+                queued = worker_server.read_job("11111111-1111-4111-8111-111111111111")
+                running = worker_server.read_job("22222222-2222-4222-8222-222222222222")
+                completed = worker_server.read_job("33333333-3333-4333-8333-333333333333")
+                self.assertEqual(queued["status"], "failed")
+                self.assertEqual(running["status"], "failed")
+                self.assertIn("Submit the assessment again", queued["error"])
+                self.assertEqual(completed["status"], "completed")
+
+    def test_prunes_oldest_terminal_job_when_history_is_full(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ids = [
+                "11111111-1111-4111-8111-111111111111",
+                "22222222-2222-4222-8222-222222222222",
+                "33333333-3333-4333-8333-333333333333",
+            ]
+            with patch.object(worker_server, "JOB_DIR", root), patch.object(worker_server, "MAX_JOBS", 3):
+                worker_server.write_job(self.make_job(ids[0], "completed", "2026-11-03T09:00:00Z"))
+                worker_server.write_job(self.make_job(ids[1], "failed", "2026-11-03T09:01:00Z"))
+                worker_server.write_job(self.make_job(ids[2], "running", "2026-11-03T09:02:00Z"))
+                worker_server.prune_job_history()
+                self.assertIsNone(worker_server.read_job(ids[0]))
+                self.assertIsNotNone(worker_server.read_job(ids[1]))
+                self.assertIsNotNone(worker_server.read_job(ids[2]))
+
+
 if __name__ == "__main__":
     unittest.main()
