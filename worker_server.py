@@ -6,25 +6,22 @@ intended to be exposed directly to the public internet.
 """
 from __future__ import annotations
 
-import base64
 import ipaddress
 import json
 import os
 import re
 import shutil
-import tempfile
 import threading
 import time
 import uuid
-import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from scanner_engine import (
     Finding, ScopeError, ToolError, add_finding, load_allowlist, normalize_target,
-    resolve_target, web_assessment, run_nmap, run_zap_baseline, assess_local_path,
+    resolve_target, web_assessment, run_nmap, run_zap_baseline,
     score_findings, utc_now,
 )
 
@@ -34,9 +31,6 @@ TOKEN = os.environ.get("SCANNER_WORKER_TOKEN", "")
 JOB_DIR = Path(os.environ.get("SCANNER_JOB_DIR", "/var/lib/scanner/jobs"))
 TOKEN_FILE = Path(os.environ.get("SCANNER_WORKER_TOKEN_FILE", str(JOB_DIR / ".worker-token")))
 MAX_REQUEST = 8 * 1024 * 1024
-MAX_ARCHIVE = 2_500_000
-MAX_EXTRACTED = 25 * 1024 * 1024
-MAX_FILES = 1000
 MAX_JOBS = 100
 executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="scanner-job")
 lock = threading.Lock()
@@ -104,37 +98,6 @@ def prune_job_history():
                 files.remove(path)
 
 
-def safe_extract_archive(encoded: str, destination: Path):
-    if not isinstance(encoded, str) or len(encoded) > (MAX_ARCHIVE * 4 // 3 + 16):
-        raise ValueError("Source archive is too large.")
-    raw = base64.b64decode(encoded, validate=True)
-    if len(raw) > MAX_ARCHIVE:
-        raise ValueError("Source archive exceeds the upload limit.")
-    total = 0
-    count = 0
-    with zipfile.ZipFile(__import__("io").BytesIO(raw)) as archive:
-        for info in archive.infolist():
-            count += 1
-            if count > MAX_FILES:
-                raise ValueError("Source archive contains too many files.")
-            name = info.filename.replace("\\", "/")
-            rel = PurePosixPath(name)
-            mode = (info.external_attr >> 16) & 0o170000
-            if rel.is_absolute() or ".." in rel.parts or mode == 0o120000:
-                raise ValueError("Unsafe path or symbolic link found in source archive.")
-            if info.is_dir():
-                continue
-            total += info.file_size
-            if total > MAX_EXTRACTED:
-                raise ValueError("Expanded source archive exceeds the 25 MB limit.")
-            target = (destination / Path(*rel.parts)).resolve()
-            if destination.resolve() not in target.parents:
-                raise ValueError("Unsafe archive path.")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with archive.open(info) as source, target.open("wb") as output:
-                shutil.copyfileobj(source, output, length=64 * 1024)
-
-
 def execute_job(job_id: str, request: dict):
     job = read_job(job_id)
     if not job:
@@ -144,7 +107,7 @@ def execute_job(job_id: str, request: dict):
     write_job(job)
     findings: list[Finding] = []
     modules = set(request.get("modules") or ["web", "network", "tls"])
-    allowed_modules = {"web", "network", "tls", "zap", "local"}
+    allowed_modules = {"web", "network", "tls", "zap"}
     if not modules or not modules.issubset(allowed_modules):
         raise ValueError("Unsupported assessment module requested.")
     target_raw = request.get("target", "")
@@ -172,12 +135,10 @@ def execute_job(job_id: str, request: dict):
             addresses = resolve_target(host, allow_hosts, networks)
     if ({"web", "network", "tls", "zap"} & modules) and not target:
         raise ValueError("A target is required for the selected network/web modules.")
-    if "local" in modules and not request.get("source_archive"):
-        raise ValueError("Upload a ZIP source/configuration archive to run local assessment.")
     profile = request.get("profile", "standard")
     if profile not in {"passive", "standard", "advanced"}:
         raise ValueError("Invalid scan profile.")
-    results = {"target": target or "Local source archive", "profile": profile}
+    results = {"target": target, "profile": profile}
     if "network" in modules:
         # CIDR/IP scopes stay as network notation; URL targets must be reduced
         # to their validated hostname before passing them to Nmap.
@@ -193,12 +154,6 @@ def execute_job(job_id: str, request: dict):
             results["web"] = {"status": "not_applicable", "note": "Web checks require an HTTP(S) URL."}
     if "zap" in modules:
         results["zap"] = run_zap_baseline(target, True)
-    if "local" in modules:
-        with tempfile.TemporaryDirectory(prefix="scanner-source-") as temp:
-            source = Path(temp) / "source"
-            source.mkdir()
-            safe_extract_archive(request["source_archive"], source)
-            results["local_assessment"] = assess_local_path(str(source), findings)
     results["findings"] = [f.__dict__ for f in findings]
     results["summary"] = score_findings(findings)
     results["scan_id"] = job_id
@@ -212,8 +167,6 @@ def execute_job(job_id: str, request: dict):
         "service_version_detection": results.get("network", {}).get("status") == "completed",
         "tls_assessment": bool(results.get("web", {}).get("tls")),
         "zap_passive_baseline": results.get("zap", {}).get("status") == "completed",
-        "local_config_and_secret_checks": results.get("local_assessment", {}).get("status") == "completed",
-        "trivy": results.get("local_assessment", {}).get("trivy", {}).get("status", "not_requested"),
         "os_fingerprinting_requested": bool(request.get("os_detect")),
         "udp_scan_requested": bool(request.get("udp")),
         "active_exploitation": False,
@@ -320,7 +273,7 @@ class Handler(BaseHTTPRequestHandler):
                 active_jobs.add(job_id)
                 executor.submit(run_job, job_id, data)
             self.send_json(202, {"job_id": job_id, "status": "queued"})
-        except (ValueError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
+        except (ValueError, json.JSONDecodeError) as exc:
             self.send_json(400, {"error": str(exc)[:300]})
 
     def do_PUT(self):
