@@ -1,37 +1,29 @@
-name: Backend tests
+name: Quality checks
 
 on:
   push:
-    branches: [main, android-production-ready]
-    paths:
-      - "api/**"
-      - "tests/**"
-      - "requirements.txt"
-      - ".github/workflows/backend-tests.yml"
+    branches: [main, rebuild-v1]
+    paths: ["api/**", "tests/**", "*.html", "vercel.json", "requirements.txt", ".github/workflows/backend-tests.yml"]
   pull_request:
-    paths:
-      - "api/**"
-      - "tests/**"
-      - "requirements.txt"
-      - ".github/workflows/backend-tests.yml"
+    paths: ["api/**", "tests/**", "*.html", "vercel.json", "requirements.txt", ".github/workflows/backend-tests.yml"]
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: Python backend regression tests
+  quality:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Check Python syntax
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compile Python
         run: python -m py_compile api/index.py tests/test_scanner.py tests/check_frontend.py
-      - name: Run regression tests
+      - name: Backend regression tests
         run: python -m unittest discover -s tests -v
-      - name: Check inline frontend JavaScript
+      - name: Frontend syntax and local references
         run: python tests/check_frontend.py
