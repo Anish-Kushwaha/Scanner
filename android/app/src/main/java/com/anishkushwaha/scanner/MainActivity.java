@@ -23,7 +23,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 public class MainActivity extends Activity {
-    private static final String APP_URL = "https://scanner-rose-rho.vercel.app/";
+    private static final String APP_URL = "https://anish-kushwaha.github.io/Scanner/";
     private WebView webView;
     private LinearLayout errorPanel;
 
@@ -47,6 +47,9 @@ public class MainActivity extends Activity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
         settings.setMediaPlaybackRequiresUserGesture(true);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            settings.setSafeBrowsingEnabled(true);
+        }
         settings.setUserAgentString(settings.getUserAgentString() + " ScannerAndroid/1.0");
         webView.setBackgroundColor(Color.rgb(5, 12, 28));
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
@@ -55,9 +58,13 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String host = uri.getHost() == null ? "" : uri.getHost();
-                if ("scanner-rose-rho.vercel.app".equalsIgnoreCase(host)) return false;
+                if ("anish-kushwaha.github.io".equalsIgnoreCase(host)) return false;
                 if ("https".equalsIgnoreCase(uri.getScheme())) {
-                    startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                    } catch (android.content.ActivityNotFoundException ignored) {
+                        showError();
+                    }
                     return true;
                 }
                 return true;
@@ -65,9 +72,14 @@ public class MainActivity extends Activity {
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) showError();
             }
+            @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, android.webkit.WebResourceResponse response) {
+                if (request.isForMainFrame() && response.getStatusCode() >= 400) showError();
+            }
             @Override public void onPageFinished(WebView view, String url) {
-                errorPanel.setVisibility(View.GONE);
-                webView.setVisibility(View.VISIBLE);
+                if (errorPanel != null && !errorPanel.isShown() && view.getVisibility() != View.GONE) {
+                    errorPanel.setVisibility(View.GONE);
+                    webView.setVisibility(View.VISIBLE);
+                }
             }
         });
 
@@ -121,8 +133,8 @@ public class MainActivity extends Activity {
     }
 
     private void showError() {
-        webView.setVisibility(View.GONE);
-        errorPanel.setVisibility(View.VISIBLE);
+        if (webView != null) webView.setVisibility(View.GONE);
+        if (errorPanel != null) errorPanel.setVisibility(View.VISIBLE);
     }
 
     @Override public void onBackPressed() {
