@@ -1457,7 +1457,9 @@
             this.isScanning = false;
             this.currentScan = null;
             // ✅ CORRECT BACKEND URL
-            this.backendUrl = 'https://scanner-rose-rho.vercel.app';
+            this.backendUrl = window.location.hostname === 'anish-kushwaha.github.io'
+                ? 'https://scanner-rose-rho.vercel.app'
+                : window.location.origin;
             this.scanStages = [
                 { id: 1, name: 'Target Validation', duration: 500 },
                 { id: 2, name: 'Safe Connection', duration: 500 },
