@@ -49,3 +49,21 @@ Place a TLS reverse proxy in front of the worker and restrict inbound traffic. T
 - JSON report with CSV export in the browser
 
 The API requires a bearer token between Vercel and the worker. The browser never receives it. The authorization checkbox is an attestation, not identity proof. A public commercial service still requires real user accounts, per-user permissions, stronger quotas, audit retention and incident monitoring.
+
+
+## Vercel Sandbox deployment
+
+The Scanner worker is currently provisioned as a named Vercel Sandbox:
+
+- Sandbox name: `scanner-worker`
+- Region: `bom1` (Mumbai)
+- Compute: 1 vCPU / 2 GB RAM
+- Exposed worker port: `8080`
+- Worker URL: `https://sb-18x05hudc15k.vercel.run`
+- Filesystem: persistent snapshots enabled; one latest snapshot retained
+- Session timeout configured: 45 minutes (Hobby-compatible)
+- The bearer token is stored as a sensitive Vercel Preview environment variable and is not committed here.
+
+The current worker scope is deliberately restricted to the exact Scanner preview hostname and `scanme.nmap.org` for safe Nmap validation. Add only targets for which the operator has written authorization. The worker rejects targets outside `SCANNER_ALLOWED_TARGETS`.
+
+**Lifecycle limitation:** persistence preserves files between sessions; it does not keep a session running continuously. The current 45-minute session will stop automatically. The named sandbox can be resumed from its snapshot, but the worker process must be started again after a resume. This setup is suitable for controlled testing and short-lived assessments, not an always-on production SLA. A production-grade on-demand deployment should add a server-side Sandbox SDK control-plane that resumes the named sandbox and starts the worker before proxying each request, or use a continuously running VM.
