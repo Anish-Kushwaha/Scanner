@@ -53,17 +53,18 @@ The API requires a bearer token between Vercel and the worker. The browser never
 
 ## Vercel Sandbox deployment
 
-The Scanner worker is currently provisioned as a named Vercel Sandbox:
+The Scanner worker runs in a named, persistent Vercel Sandbox. The Vercel serverless gateway uses the `@vercel/sandbox` SDK to retrieve or resume that sandbox on demand, verify the worker process, and then proxy authenticated job requests. The browser and Android app never receive the worker bearer token.
 
 - Sandbox name: `scanner-worker`
 - Region: `bom1` (Mumbai)
 - Compute: 1 vCPU / 2 GB RAM
 - Exposed worker port: `8080`
-- Worker URL: `https://sb-18x05hudc15k.vercel.run`
 - Filesystem: persistent snapshots enabled; one latest snapshot retained
-- Session timeout configured: 45 minutes (Hobby-compatible)
+- Snapshot retention: 7 days
+- Session timeout: 45 minutes (Hobby-compatible)
+- Vercel project OIDC token generation is enabled for the server-side Sandbox SDK.
 - The bearer token is stored as a sensitive Vercel Preview environment variable and is not committed here.
 
-The current worker scope is deliberately restricted to the exact Scanner preview hostname and `scanme.nmap.org` for safe Nmap validation. Add only targets for which the operator has written authorization. The worker rejects targets outside `SCANNER_ALLOWED_TARGETS`.
+The current worker scope is deliberately restricted to the exact Scanner preview hostname and `scanme.nmap.org` for safe Nmap validation. Add only targets for which the operator has written authorization. The gateway passes the configured `SCANNER_ALLOWED_TARGETS` allowlist into the worker every time it starts.
 
-**Lifecycle limitation:** persistence preserves files between sessions; it does not keep a session running continuously. The current 45-minute session will stop automatically. The named sandbox can be resumed from its snapshot, but the worker process must be started again after a resume. This setup is suitable for controlled testing and short-lived assessments, not an always-on production SLA. A production-grade on-demand deployment should add a server-side Sandbox SDK control-plane that resumes the named sandbox and starts the worker before proxying each request, or use a continuously running VM.
+**Lifecycle and cost:** a session is not an always-on server. It stops at its configured timeout; the next dashboard API request resumes the named sandbox from its latest snapshot and starts the worker again. This provides on-demand availability without a permanently running VM, but the first request after a stop can take longer and compute/snapshot/network usage may be billable. It is not an always-on production SLA or a distributed job queue.
