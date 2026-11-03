@@ -1058,7 +1058,7 @@
         <!-- Hero Section -->
         <section class="hero-section">
             <h1 class="glitch">VULNERABILITY SECURITY SCANNER</h1>
-            <div class="version-tag">v3.2 <span class="pulse">☠️</span></div>
+            <div class="version-tag">v4.0 <span class="pulse">☠️</span></div>
             <div class="subtitle">
                 Advanced Web Vulnerability & Network Security Scanner with Futuristic Web Interface
             </div>
@@ -1141,7 +1141,7 @@
             <div class="scan-stages">
                 <div class="stage active" data-stage="1">
                     <div class="stage-icon"><i class="fas fa-search"></i></div>
-                    <div class="stage-label">Reconnaissance</div>
+                    <div class="stage-label">Target Validation</div>
                 </div>
                 <div class="stage" data-stage="2">
                     <div class="stage-icon"><i class="fas fa-network-wired"></i></div>
@@ -1153,7 +1153,7 @@
                 </div>
                 <div class="stage" data-stage="4">
                     <div class="stage-icon"><i class="fas fa-server"></i></div>
-                    <div class="stage-label">Server Analysis</div>
+                    <div class="stage-label">Report Assembly</div>
                 </div>
                 <div class="stage" data-stage="5">
                     <div class="stage-icon"><i class="fas fa-file-alt"></i></div>
@@ -1327,7 +1327,7 @@
             </div>
             <div class="terminal-body">
                 <pre id="terminalOutput">
-[+] VULNERABILITY SECURITY SCANNER v3.2 Initialized
+[+] SCANNER SAFE AUDIT v4.0 Initialized
 [+] Created by: ANISH KUSHWAHA
 [+] Website: Anish-kushwaha.b1zisites.com
 [+] Email: Anish-Kushwaha@zoohost.in
@@ -1459,10 +1459,10 @@
             // ✅ CORRECT BACKEND URL
             this.backendUrl = 'https://scanner-rose-rho.vercel.app';
             this.scanStages = [
-                { id: 1, name: 'Reconnaissance', duration: 1000 },
+                { id: 1, name: 'Target Validation', duration: 500 },
                 { id: 2, name: 'Safe Connection', duration: 500 },
                 { id: 3, name: 'HTTP Security', duration: 500 },
-                { id: 4, name: 'Server Analysis', duration: 1000 },
+                { id: 4, name: 'Report Assembly', duration: 500 },
                 { id: 5, name: 'Report Generation', duration: 500 }
             ];
         }
@@ -1710,7 +1710,7 @@
             document.getElementById('infoPort').textContent = 
                 apiData.network_info?.port || 'Unknown';
             
-            // Update geolocation (demo data since API doesn't provide)
+            // Update geolocation (the safe public API intentionally does not collect it)
             document.getElementById('geoCountry').textContent = 
                 apiData.geolocation?.country || 'Not collected';
             document.getElementById('geoLocation').textContent = 
@@ -1727,8 +1727,10 @@
                 this.extractVersion(apiData.web_info?.server) || 'Unknown';
             document.getElementById('serverPoweredBy').textContent = 
                 apiData.web_info?.server_info?.powered_by || apiData.web_info?.headers?.['x-powered-by'] || 'Not disclosed';
-            document.getElementById('responseTime').textContent = 
-                'Analyzed';
+            document.getElementById('responseTime').textContent =
+                apiData.web_info?.response_info?.duration_ms != null
+                    ? apiData.web_info.response_info.duration_ms + ' ms'
+                    : 'Not measured';
             
             // Update security headers
             const headers = apiData.web_info?.security_headers || {};
