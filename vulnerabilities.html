@@ -613,7 +613,7 @@
     <script>
     class RealVulnerabilityScanner {
         constructor() {
-            this.backendUrl = 'https://scanner-rose-rho.vercel.app/api';
+            this.backendUrl = 'https://scanner-rose-rho.vercel.app';
             this.scanData = null;
             this.init();
         }
@@ -653,63 +653,16 @@
         }
 
         checkUrlForDirectScan() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const target = urlParams.get('target');
-            
+            const target = new URLSearchParams(window.location.search).get('target');
             if (target) {
-                console.log('🔥 SCAN TARGET FROM URL:', target);
-                this.performRealScan(target);
+                this.showConnectionError('Direct scans from URL parameters are disabled. Start a scan on the home page and confirm authorization first.');
             } else {
-                this.showConnectionError('NO SCAN DATA FOUND - Go to Home page and scan first!');
+                this.showConnectionError('No saved scan report was found in this browser. Return to the home page and run a scan first.');
             }
         }
 
-        async performRealScan(targetUrl) {
-            console.log('🔥 PERFORMING REAL SCAN:', targetUrl);
-            
-            try {
-                // Show loading
-                document.getElementById('loadingState').style.display = 'block';
-                document.getElementById('errorState').style.display = 'none';
-                document.getElementById('scanResults').style.display = 'none';
-                
-                // REAL API CALL TO YOUR BACKEND
-                const response = await fetch(`${this.backendUrl}/api/scan`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ target: targetUrl }),
-                    mode: 'cors'
-                });
-
-                console.log('🔥 API RESPONSE STATUS:', response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`BACKEND ERROR: ${response.status} ${response.statusText}`);
-                }
-
-                const scanResults = await response.json();
-                console.log('🔥 REAL SCAN RESULTS RECEIVED:', scanResults);
-                
-                if (scanResults.error) {
-                    throw new Error(`SCANNER ERROR: ${scanResults.error}`);
-                }
-
-                // SAVE REAL DATA
-                this.scanData = scanResults;
-                localStorage.setItem('vulnScanData', JSON.stringify(scanResults));
-                localStorage.setItem('vulnScanTarget', targetUrl);
-                localStorage.setItem('vulnScanTime', new Date().toISOString());
-                
-                // DISPLAY REAL DATA
-                this.displayRealData();
-                
-            } catch (error) {
-                console.error('🔥 REAL SCAN FAILED:', error);
-                this.showConnectionError(error.message);
-            }
+        async performRealScan() {
+            this.showConnectionError('Direct scanning from this report page is disabled. Use the authorized scan flow on the home page.');
         }
 
         displayRealData() {
@@ -734,17 +687,18 @@
             const data = this.scanData;
             document.getElementById('targetUrl').textContent = data.target || 'Unknown';
             document.getElementById('targetIP').textContent = data.network_info?.ip || 'Unknown';
-            document.getElementById('targetPort').textContent = data.network_info?.port || 'Unknown';
+            document.getElementById('targetPort').textContent = data.network_info?.port ?? 'Not scanned';
             document.getElementById('targetDomain').textContent = data.network_info?.domain || 'Unknown';
         }
 
         fillRealGeolocation() {
             const geo = this.scanData.geolocation || {};
-            document.getElementById('geoCountry').textContent = geo.country || 'Unknown';
-            document.getElementById('geoCity').textContent = geo.city || geo.region || 'Unknown';
-            document.getElementById('geoISP').textContent = geo.isp || 'Unknown';
-            document.getElementById('geoCoords').textContent = 
-                (geo.latitude && geo.longitude) ? `${geo.latitude}, ${geo.longitude}` : 'Unknown';
+            const notCollected = geo.status === 'not_collected' ? 'Not collected' : 'Unknown';
+            document.getElementById('geoCountry').textContent = geo.country || notCollected;
+            document.getElementById('geoCity').textContent = geo.city || geo.region || notCollected;
+            document.getElementById('geoISP').textContent = geo.isp || notCollected;
+            document.getElementById('geoCoords').textContent =
+                (geo.latitude && geo.longitude) ? geo.latitude + ', ' + geo.longitude : notCollected;
         }
 
         fillRealServerInfo() {
@@ -758,81 +712,117 @@
         }
 
         loadRealOpenPorts() {
-            const ports = this.scanData.network_info?.open_ports || [];
+            const network = this.scanData.network_info || {};
+            const ports = Array.isArray(network.open_ports) ? network.open_ports : [];
             const container = document.getElementById('portsContainer');
-            container.innerHTML = '';
-            
-            document.getElementById('portsCount').textContent = `(${ports.length})`;
-            
-            if (ports.length === 0) {
-                container.innerHTML = `
-                    <div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-secondary)">
-                        <i class="fas fa-lock" style="font-size:2rem"></i>
-                        <p>No open ports detected</p>
-                    </div>
-                `;
+            container.replaceChildren();
+
+            if (network.port_scan_status === 'not_performed' || network.open_ports_count === null) {
+                document.getElementById('portsCount').textContent = '(not scanned)';
+                const notice = document.createElement('div');
+                notice.style.cssText = 'grid-column:1/-1;text-align:center;padding:30px;color:var(--text-secondary)';
+                notice.textContent = 'TCP port enumeration is intentionally disabled for the public hosted scanner.';
+                container.appendChild(notice);
                 return;
             }
-            
+
+            document.getElementById('portsCount').textContent = '(' + ports.length + ')';
+            if (ports.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'grid-column:1/-1;text-align:center;padding:30px;color:var(--text-secondary)';
+                empty.textContent = 'No open ports were reported by this scan.';
+                container.appendChild(empty);
+                return;
+            }
+
             ports.forEach(port => {
-                const portCard = document.createElement('div');
-                portCard.className = 'port-card';
-                portCard.innerHTML = `
-                    <div class="port-number">${port.port}</div>
-                    <div class="port-service">${port.service}</div>
-                    ${port.banner ? `<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:5px">${port.banner.substring(0, 25)}</div>` : ''}
-                `;
-                container.appendChild(portCard);
+                const card = document.createElement('div');
+                card.className = 'port-card';
+                const number = document.createElement('div');
+                number.className = 'port-number';
+                number.textContent = String(port.port ?? '—');
+                const service = document.createElement('div');
+                service.className = 'port-service';
+                service.textContent = String(port.service ?? 'Unknown service');
+                card.append(number, service);
+                if (port.banner) {
+                    const banner = document.createElement('div');
+                    banner.style.cssText = 'font-size:0.7rem;color:var(--text-secondary);margin-top:5px';
+                    banner.textContent = String(port.banner).slice(0, 100);
+                    card.appendChild(banner);
+                }
+                container.appendChild(card);
             });
         }
 
         loadRealVulnerabilities() {
-            const vulns = this.scanData.vulnerabilities || [];
+            const vulns = Array.isArray(this.scanData.vulnerabilities) ? this.scanData.vulnerabilities : [];
             const container = document.getElementById('vulnerabilitiesContainer');
-            container.innerHTML = '';
-            
-            document.getElementById('vulnCount').textContent = `(${vulns.length})`;
-            
+            container.replaceChildren();
+            document.getElementById('vulnCount').textContent = '(' + vulns.length + ')';
+
             if (vulns.length === 0) {
-                container.innerHTML = `
-                    <div style="text-align:center;padding:40px;color:var(--success-color)">
-                        <i class="fas fa-check-circle" style="font-size:3rem"></i>
-                        <h3>✅ NO VULNERABILITIES DETECTED</h3>
-                        <p>Real scan shows target is secure</p>
-                    </div>
-                `;
+                const empty = document.createElement('div');
+                empty.style.cssText = 'text-align:center;padding:40px;color:var(--success-color)';
+                const heading = document.createElement('h3');
+                heading.textContent = 'NO FINDINGS IN CHECKED CONTROLS';
+                const note = document.createElement('p');
+                note.textContent = 'A clean limited assessment is not proof that the target is secure.';
+                empty.append(heading, note);
+                container.appendChild(empty);
                 return;
             }
-            
+
             vulns.forEach((vuln, index) => {
-                const vulnDiv = document.createElement('div');
-                vulnDiv.className = `vuln-item vuln-${vuln.risk?.toLowerCase() || 'medium'}`;
-                
-                let icon = 'fa-bug';
-                if (vuln.type?.toLowerCase().includes('sql')) icon = 'fa-database';
-                if (vuln.type?.toLowerCase().includes('xss')) icon = 'fa-code';
-                if (vuln.type?.toLowerCase().includes('admin')) icon = 'fa-user-shield';
-                if (vuln.type?.toLowerCase().includes('header')) icon = 'fa-heading';
-                if (vuln.type?.toLowerCase().includes('service')) icon = 'fa-server';
-                
-                vulnDiv.innerHTML = `
-                    <div class="vuln-header">
-                        <div class="vuln-title">
-                            <i class="fas ${icon} vuln-icon"></i>
-                            <span>${vuln.type || 'Vulnerability'} #${index + 1}</span>
-                        </div>
-                        <span class="risk-badge risk-${vuln.risk?.toLowerCase() || 'medium'}">
-                            ${vuln.risk || 'MEDIUM'}
-                        </span>
-                    </div>
-                    <div class="vuln-desc">${vuln.description || 'No description'}</div>
-                    ${vuln.payload ? `<div class="vuln-details"><strong>Payload:</strong> <code>${vuln.payload}</code></div>` : ''}
-                    ${vuln.port ? `<div class="vuln-details"><strong>Port:</strong> ${vuln.port} | <strong>Service:</strong> ${vuln.service || 'Unknown'}</div>` : ''}
-                    ${vuln.cve ? `<div class="vuln-details" style="border-color:var(--danger-color)"><strong>CVE:</strong> ${vuln.cve}</div>` : ''}
-                    ${vuln.recommendation ? `<div class="vuln-details" style="border-color:var(--success-color)"><strong>Fix:</strong> ${vuln.recommendation}</div>` : ''}
-                `;
-                
-                container.appendChild(vulnDiv);
+                const risk = ['critical', 'high', 'medium', 'low', 'info'].includes(
+                    String(vuln.risk || '').toLowerCase()
+                ) ? String(vuln.risk).toLowerCase() : 'info';
+                const card = document.createElement('div');
+                card.className = 'vuln-item vuln-' + risk;
+
+                const header = document.createElement('div');
+                header.className = 'vuln-header';
+                const title = document.createElement('div');
+                title.className = 'vuln-title';
+                const icon = document.createElement('i');
+                let iconName = 'fa-bug';
+                const type = String(vuln.type || 'Finding').toLowerCase();
+                if (type.includes('cookie')) iconName = 'fa-cookie-bite';
+                else if (type.includes('tls') || type.includes('https')) iconName = 'fa-lock';
+                else if (type.includes('header')) iconName = 'fa-heading';
+                else if (type.includes('server')) iconName = 'fa-server';
+                icon.className = 'fas ' + iconName + ' vuln-icon';
+                const titleText = document.createElement('span');
+                titleText.textContent = String(vuln.type || 'Finding') + ' #' + (index + 1);
+                title.append(icon, titleText);
+
+                const badge = document.createElement('span');
+                badge.className = 'risk-badge risk-' + risk;
+                badge.textContent = String(vuln.risk || 'INFO').toUpperCase();
+                header.append(title, badge);
+                card.appendChild(header);
+
+                const description = document.createElement('div');
+                description.className = 'vuln-desc';
+                description.textContent = String(vuln.description || 'No description');
+                card.appendChild(description);
+
+                if (vuln.recommendation) {
+                    const recommendation = document.createElement('div');
+                    recommendation.className = 'vuln-details';
+                    const label = document.createElement('strong');
+                    label.textContent = 'Recommendation: ';
+                    recommendation.append(label, document.createTextNode(String(vuln.recommendation)));
+                    card.appendChild(recommendation);
+                }
+                if (vuln.evidence && typeof vuln.evidence === 'object') {
+                    const evidence = document.createElement('div');
+                    evidence.className = 'vuln-details';
+                    evidence.textContent = 'Evidence: ' + Object.entries(vuln.evidence)
+                        .map(([key, value]) => key + ': ' + String(value)).join(' · ');
+                    card.appendChild(evidence);
+                }
+                container.appendChild(card);
             });
         }
 
@@ -881,14 +871,7 @@
 
     // Retry function
     function retryConnection() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const target = urlParams.get('target');
-        
-        if (target && window.realScanner) {
-            window.realScanner.performRealScan(target);
-        } else {
-            window.location.href = 'index.html';
-        }
+        window.location.href = 'index.html';
     }
 
     // Download report
