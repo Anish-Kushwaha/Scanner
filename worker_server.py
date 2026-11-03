@@ -134,8 +134,11 @@ def execute_job(job_id: str, request: dict):
         raise ValueError("Invalid scan profile.")
     results = {"target": target or "Local source archive", "profile": profile}
     if "network" in modules:
+        # CIDR/IP scopes stay as network notation; URL targets must be reduced
+        # to their validated hostname before passing them to Nmap.
+        nmap_target = target if network is not None else host
         results["network"] = run_nmap(
-            target if "/" in target else host, addresses, profile,
+            nmap_target, addresses, profile,
             bool(request.get("os_detect")), bool(request.get("udp")),
         )
     if "web" in modules or "tls" in modules:
