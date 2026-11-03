@@ -35,7 +35,7 @@ class ScriptExtractor(HTMLParser):
             if not self.attributes.get("src"):
                 script_type = (self.attributes.get("type") or "").lower()
                 if script_type in {"", "text/javascript", "application/javascript", "module"}:
-                    self.scripts.append("".join(self.buffer))
+                    self.scripts.append(("".join(self.buffer), self.attributes.get("type") == "module"))
             self.in_script = False
             self.attributes = {}
             self.buffer = []
@@ -55,10 +55,10 @@ def main():
                 return 1
             parser = ScriptExtractor()
             parser.feed(page.read_text(encoding="utf-8"))
-            for index, source in enumerate(parser.scripts, 1):
+            for index, (source, is_module) in enumerate(parser.scripts, 1):
                 if not source.strip():
                     continue
-                suffix = ".mjs" if "module" in source[:0] else ".js"
+                suffix = ".mjs" if is_module else ".js"
                 temp_file = Path(temp_dir) / f"{page.stem}-{index}{suffix}"
                 temp_file.write_text(source, encoding="utf-8")
                 result = subprocess.run(
