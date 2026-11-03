@@ -332,14 +332,54 @@ def web_assessment(target: str, findings: list[Finding]) -> dict[str, Any]:
             "http_methods_tested": ["GET"], "active_payloads_sent": False}
 
 
-def run_nmap(target: str, addresses: list[str], profile: str, os_detect: bool, udp: bool) -> dict[str, Any]:
+def run_nmap(target: str, addresses: list[str], profile: str, os_detect: bool, udp: bool,
+             config: dict[str, Any] | None = None) -> dict[str, Any]:
+    config = config or {}
+    # Structured options only: never accept raw Nmap command-line arguments.
+    scan_mode = config.get("scan_mode", "connect")
+    if scan_mode not in {"connect", "syn"}:
+        raise ToolError("Unsupported TCP scan mode.")
+    ports = str(config.get("ports", "top"))
+    if ports != "top":
+        if not re.fullmatch(r"[0-9,\-]+", ports) or len(ports) > 160:
+            raise ToolError("Invalid port selection.")
+        for part in ports.split(","):
+            bounds = part.split("-")
+            if len(bounds) > 2 or any(not x.isdigit() or not 1 <= int(x) <= 65535 for x in bounds):
+                raise ToolError("Ports must be between 1 and 65535.")
+            if len(bounds) == 2 and int(bounds[0]) > int(bounds[1]):
+                raise ToolError("Port range start must not exceed its end.")
+    timing = config.get("timing", 3)
+    if isinstance(timing, bool) or timing not in {2, 3, 4}:
+        raise ToolError("Timing template must be T2, T3 or T4.")
+    version_intensity = config.get("version_intensity", 5)
+    if isinstance(version_intensity, bool) or not isinstance(version_intensity, int) or not 0 <= version_intensity <= 7:
+        raise ToolError("Version intensity must be between 0 and 7.")
+    version_detection = config.get("version_detection", True) is True
+    skip_host_discovery = config.get("skip_host_discovery", False) is True
+    traceroute = config.get("traceroute", False) is True
+    show_only_open = config.get("show_only_open", True) is True
     binary = shutil.which("nmap")
     if not binary:
         return {"available": False, "status": "not_installed",
                 "note": "Install Nmap on the worker to enable network discovery and service detection."}
-    args = [binary, "-n", "-sT", "-sV", "--version-light", "--top-ports",
-            "100" if profile == "passive" else "1000", "-T3", "--max-retries", "2",
-            "--host-timeout", "5m", "-oX", "-"]
+    args = [binary, "-n", "-sT" if scan_mode == "connect" else "-sS",
+            "-T" + str(timing), "--max-retries", "2",
+            "--host-timeout", "5m", "--reason", "-oX", "-"]
+    if version_detection:
+        args.extend(["-sV", "--version-intensity", str(version_intensity)])
+    if ports == "top":
+        args.extend(["--top-ports", "100" if profile == "passive" else "1000"])
+    else:
+        args.extend(["-p", ports])
+    if skip_host_discovery:
+        args.append("-Pn")
+    if show_only_open:
+        args.append("--open")
+    if traceroute:
+        args.append("--traceroute")
+    if scan_mode == "syn" and hasattr(os, "geteuid") and os.geteuid() != 0:
+        raise ToolError("SYN scans require elevated worker privileges; use TCP connect mode.")
     if os_detect:
         if hasattr(os, "geteuid") and os.geteuid() != 0:
             raise ToolError("OS detection requires elevated worker privileges; rerun with --os-detect as root.")
@@ -426,7 +466,7 @@ def run_nmap(target: str, addresses: list[str], profile: str, os_detect: bool, u
         raise ToolError("Nmap exceeded the configured six-minute scan timeout.") from exc
 
     return {"available": True, "status": "completed", "engine": "Nmap",
-            "arguments_profile": profile, "addresses_resolved": addresses,
+            "arguments_profile": profile, "scan_config": { "scan_mode": scan_mode, "ports": ports, "timing": timing, "version_detection": version_detection, "version_intensity": version_intensity, "skip_host_discovery": skip_host_discovery, "traceroute": traceroute, "show_only_open": show_only_open }, "addresses_resolved": addresses,
             "hosts": hosts, "host_count": len(hosts),
             "open_ports_count": sum(1 for host in hosts for port in host["ports"] if port["state"] == "open"),
             "nse_scripts": "not_run",
