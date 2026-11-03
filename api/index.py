@@ -637,9 +637,23 @@ class handler(http.server.BaseHTTPRequestHandler):
     def _path(self):
         return urlsplit(self.path).path.rstrip("/") or "/"
 
+    def _origin_allowed(self):
+        origin = self.headers.get("Origin", "")
+        if origin in ALLOWED_ORIGINS:
+            return True
+        # Permit same-origin Vercel preview deployments without opening CORS to other sites.
+        parsed = urlsplit(origin)
+        request_host = self.headers.get("Host", "").split(":", 1)[0].lower()
+        return (
+            parsed.scheme == "https"
+            and parsed.hostname is not None
+            and parsed.hostname.lower() == request_host
+            and parsed.netloc.lower() == request_host
+        )
+
     def do_OPTIONS(self):
         origin = self.headers.get("Origin")
-        if origin not in ALLOWED_ORIGINS:
+        if not self._origin_allowed():
             self._send_json(403, {"error": "Origin is not allowed."})
             return
         self.send_response(204)
@@ -687,7 +701,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             return
 
         origin = self.headers.get("Origin")
-        if origin not in ALLOWED_ORIGINS:
+        if not self._origin_allowed():
             self._send_json(403, {
                 "error": "Requests must come from the approved Scanner web application."
             })

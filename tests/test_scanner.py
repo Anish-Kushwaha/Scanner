@@ -227,6 +227,21 @@ class ApiHandlerTests(unittest.TestCase):
             "https://scanner-rose-rho.vercel.app",
         )
 
+    def test_post_accepts_same_origin_vercel_preview_host(self):
+        request = self.make_handler(
+            "/api/scan",
+            {
+                "Origin": "https://scanner-preview-123.vercel.app",
+                "Host": "scanner-preview-123.vercel.app",
+            },
+        )
+        request.do_OPTIONS()
+        self.assertEqual(request.responses[0], 204)
+        self.assertEqual(
+            request.response_headers["access-control-allow-origin"],
+            "https://scanner-preview-123.vercel.app",
+        )
+
     def test_post_requires_approved_frontend_origin(self):
         payload = json.dumps({
             "target": "https://example.com",
