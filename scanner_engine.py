@@ -495,24 +495,28 @@ def main() -> int:
     started = time.monotonic()
     try:
         allow_hosts, networks = load_allowlist()
-        target = normalize_target(args.target)
-        parsed = urllib.parse.urlsplit(target)
-        host = parsed.hostname or ""
-        addresses = resolve_target(host, allow_hosts, networks)
-        if any("/" in x for x in [args.target]):
-            pass
-        # CIDR expansion is intentionally bounded and requires exact network allowlisting.
+        raw_target = args.target.strip()
         try:
-            network = ipaddress.ip_network(host, strict=False)
+            network = ipaddress.ip_network(raw_target, strict=False)
+        except ValueError:
+            network = None
+        if network is not None:
             if network.num_addresses > MAX_TARGETS:
                 raise ScopeError(f"Network exceeds the {MAX_TARGETS}-address cap.")
             if not any(network.subnet_of(n) for n in networks if n.version == network.version):
                 raise ScopeError("CIDR must be contained in an explicitly authorized allowlist network.")
-        except ValueError:
-            pass
+            target = str(network)
+            host = str(network.network_address)
+            addresses = [str(ip) for ip in network.hosts()]
+            parsed = None
+        else:
+            target = normalize_target(raw_target)
+            parsed = urllib.parse.urlsplit(target)
+            host = parsed.hostname or ""
+            addresses = resolve_target(host, allow_hosts, networks)
         findings: list[Finding] = []
-        web = web_assessment(target, findings) if parsed.scheme in {"http", "https"} else {}
-        nmap = run_nmap(host, addresses, args.profile, args.os_detect, args.udp)
+        web = web_assessment(target, findings) if parsed and parsed.scheme in {"http", "https"} else {}
+        nmap = run_nmap(target if network is not None else host, addresses, args.profile, args.os_detect, args.udp)
         zap = run_zap_baseline(target, args.zap_baseline)
         local = assess_local_path(args.local_path, findings)
         elapsed = round((time.monotonic() - started) * 1000)
