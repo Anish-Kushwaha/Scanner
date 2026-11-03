@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a1128">
+  <meta name="robots" content="index,follow">
+  <title>Scanner v4.0 | Creator</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark;--bg:#080e20;--panel:#101b38;--line:rgba(0,229,255,.28);--accent:#00e5ff;--text:#e0f7fa;--muted:#91a8b7}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#13234b 0,var(--bg) 58%);color:var(--text);font:16px/1.7 'Roboto Mono',monospace}
+    header,main,footer{width:min(100% - 32px,1000px);margin:auto}header{padding:24px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+    .brand{color:var(--accent);font:700 1.1rem Orbitron,sans-serif;text-decoration:none}nav{display:flex;gap:18px;flex-wrap:wrap}nav a,a{color:var(--accent)}nav a{text-decoration:none;font-size:.86rem}
+    main{padding:58px 0 75px}.eyebrow{color:var(--accent);letter-spacing:.15em;font-size:.8rem}h1,h2{font-family:Orbitron,sans-serif;line-height:1.35}h1{font-size:clamp(2rem,5vw,3.2rem);margin:.4em 0}h2{font-size:1.1rem;color:var(--accent)}
+    .profile{margin-top:28px;padding:30px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,rgba(16,27,56,.95),rgba(8,14,32,.88));box-shadow:0 14px 45px rgba(0,0,0,.25)}
+    .role{color:var(--muted)}.links{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.links a{padding:10px 14px;border:1px solid var(--line);border-radius:10px;text-decoration:none}
+    .links a:hover{border-color:var(--accent);background:rgba(0,229,255,.08)}.fine{color:var(--muted);font-size:.88rem}footer{border-top:1px solid var(--line);padding:22px 0 36px;color:var(--muted);font-size:.82rem;display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">SCANNER v4.0</a>
+    <nav aria-label="Main navigation">
+      <a href="/">HOME</a><a href="/vulnerabilities.html">REPORTS</a><a href="/disclosure.html">DISCLOSURE</a><a href="/creator.html" aria-current="page">CREATOR</a><a href="/health">API HEALTH</a>
+    </nav>
+  </header>
+  <main>
+    <p class="eyebrow">PROJECT INFORMATION</p>
+    <h1>Built to make web security posture easier to inspect.</h1>
+    <div class="profile">
+      <p class="eyebrow">CREATOR</p>
+      <h2>Anish Kushwaha</h2>
+      <p class="role">Independent developer · Scanner project</p>
+      <p>Scanner is a web-based, low-impact HTTP security posture assessment project. The v4 release focuses on safer request handling, clear reporting, responsible-use boundaries, and a consistent web and Android experience.</p>
+      <div class="links">
+        <a href="https://github.com/Anish-Kushwaha" rel="noopener noreferrer" target="_blank"><i class="fab fa-github"></i> GitHub profile</a>
+        <a href="https://github.com/Anish-Kushwaha/Scanner" rel="noopener noreferrer" target="_blank"><i class="fas fa-code"></i> Scanner source</a>
+        <a href="https://anish-kushwaha.github.io" rel="noopener noreferrer" target="_blank"><i class="fas fa-globe"></i> Portfolio</a>
+      </div>
+    </div>
+    <p class="fine">For source issues, bug reports, or feature requests, use the repository's GitHub Issues page. Do not submit credentials, target secrets, or sensitive scan data in public issues.</p>
+  </main>
+  <footer><span>© 2026 Anish Kushwaha</span><span>⚚Ⓐ⚚</span></footer>
+</body>
+</html>
