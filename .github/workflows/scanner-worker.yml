@@ -1,0 +1,18 @@
+name: Scanner worker tests
+on:
+  push:
+    branches: [main, rebuild-v1, scanner-platform-v2]
+  pull_request:
+    branches: [main]
+jobs:
+  python-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile worker
+        run: python -m py_compile scanner_engine.py
+      - name: Run engine tests
+        run: python -m unittest discover -s tests -v
