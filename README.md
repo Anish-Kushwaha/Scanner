@@ -56,7 +56,7 @@ Origin: https://anish-kushwaha.github.io
 }
 ```
 
-The `authorization_confirmed` flag is an explicit user attestation, **not** strong authentication. The API currently permits the configured browser origin and applies a best-effort per-runtime rate limit. Browser CORS is not an authorization boundary: non-browser clients can forge an Origin header, and per-runtime memory limits are not globally shared across serverless instances. Before exposing this service to broad public or commercial use, configure Vercel Firewall rate-limiting/abuse rules or a shared distributed limiter and, where appropriate, authenticated accounts/API tokens.
+The `authorization_confirmed` flag is an explicit user attestation, **not** strong authentication. The API currently permits the configured browser origin and applies a best-effort per-runtime rate limit. In addition, the active Vercel WAF rule limits `POST /api/scan` to 10 requests per client IP per 60-second fixed window; it does not throttle the health endpoint. Browser CORS is not an authorization boundary: non-browser clients can forge an Origin header. The edge WAF limit is the primary shared rate control; the in-process limit is only a secondary per-runtime safeguard. For broad public or commercial use, add authenticated accounts/API tokens, usage monitoring, and a durable abuse-response process.
 
 ### Response behavior
 
