@@ -2,7 +2,7 @@
 
 **A low-impact HTTP security posture checker with a GitHub Pages frontend and a Vercel Python API.**
 
-Live interface: https://anish-kushwaha.github.io/Scanner  
+Live interface and backend: https://scanner-rose-rho.vercel.app  
 Backend health: https://scanner-rose-rho.vercel.app/health  
 Source: https://github.com/Anish-Kushwaha/Scanner
 
