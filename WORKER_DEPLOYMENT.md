@@ -14,14 +14,14 @@ Set these environment variables on the worker host:
 
 Run behind HTTPS and firewall the worker so only the Vercel gateway can reach it. Never expose the token in browser JavaScript or an Android APK.
 
-## Vercel gateway variables
+## Vercel gateway variables for an external VPS
 
-Set the following on the Vercel project (Preview and Production):
+Only when using a separately hosted worker with the legacy Python gateway, set these on Vercel:
 
 - `SCANNER_WORKER_URL`: HTTPS base URL of the private worker.
 - `SCANNER_WORKER_TOKEN`: the same secret as the worker.
 
-Redeploy Vercel after adding variables. The dashboard calls only same-origin `/api/worker`; the gateway forwards requests and adds the secret server-side.
+The current Vercel Sandbox integration uses `api/worker.js` and the Sandbox SDK; it does not need `SCANNER_WORKER_URL`. It uses the Preview `SCANNER_WORKER_TOKEN` and `SCANNER_ALLOWED_TARGETS` variables, discovers the sandbox port dynamically, and keeps the bearer token server-side.
 
 ## Deploy with Docker
 
@@ -65,9 +65,9 @@ The Scanner worker runs in a named, persistent Vercel Sandbox. The Vercel server
 - Vercel project OIDC token generation is enabled for the server-side Sandbox SDK.
 - The bearer token is stored as a sensitive Vercel Preview environment variable and is not committed here.
 
-The current worker scope is deliberately restricted to the exact Scanner preview hostname and `scanme.nmap.org` for safe Nmap validation. Add only targets for which the operator has written authorization. The gateway passes the configured `SCANNER_ALLOWED_TARGETS` allowlist into the worker every time it starts.
+The current worker scope is deliberately restricted to the exact Scanner preview hostname and `scanme.nmap.org` for safe Nmap validation. Add only targets for which the operator has written authorization. The gateway passes the configured `SCANNER_ALLOWED_TARGETS` allowlist into the worker every time it starts. For hostname targets, Nmap receives only the IP addresses resolved and validated by the allowlist check; it does not perform a second DNS lookup during scanning. The worker process is launched with sandbox-local elevated privileges so Nmap OS/UDP options can be attempted; network-level restrictions may still limit those probes.
 
-**Lifecycle and cost:** a session is not an always-on server. It stops at its configured timeout; the next dashboard API request resumes the named sandbox from its latest snapshot and starts the worker again. This provides on-demand availability without a permanently running VM, but the first request after a stop can take longer and compute/snapshot/network usage may be billable. It is not an always-on production SLA or a distributed job queue.
+**Lifecycle and cost:** a session is not an always-on server. It stops at its configured timeout; the next dashboard API request resumes the named sandbox from its latest snapshot and starts the worker again. Running processes do not survive a stop/resume, so the gateway checks health and starts the worker in each new session. Interrupted queued/running jobs are marked failed on restart rather than remaining stuck, and the oldest completed/failed records are pruned when the 100-job history limit is reached. This provides on-demand availability without a permanently running VM, but the first request after a stop can take longer and compute/snapshot/network usage may be billable. It is not an always-on production SLA or a distributed job queue.
 
 
 ## Preview environment checklist
