@@ -1648,6 +1648,29 @@
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
+        async checkBackendHealth() {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            try {
+                const response = await fetch(`${this.backendUrl}/health`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                if (!response.ok) throw new Error('Health endpoint returned HTTP ' + response.status);
+                const health = await response.json();
+                if (health.status !== 'healthy') throw new Error('Backend did not report a healthy state');
+                this.terminal.log('Backend online — API ' + String(health.version || 'version unknown'), 'success');
+                return true;
+            } catch (error) {
+                this.terminal.log('Backend health check failed: ' + error.message, 'warning');
+                return false;
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
         // ✅ REAL API CALL METHOD
         async callBackendAPI(targetUrl) {
             this.terminal.log(`Sending request to: ${this.backendUrl}/api/scan`, 'info');
@@ -1816,6 +1839,8 @@
                 const candidate = /^https?:\/\//i.test(targetUrl) ? targetUrl : 'https://' + targetUrl;
                 const parsed = new URL(candidate);
                 if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid scheme');
+                if (parsed.port && !['80', '443'].includes(parsed.port)) throw new Error('Unsupported port');
+                if (!parsed.hostname) throw new Error('Missing hostname');
                 scanManager.startScan(targetUrl);
             } catch {
                 scanManager.terminal.log('Invalid target. Use a public HTTP(S) URL on port 80 or 443.', 'error');
@@ -1895,12 +1920,7 @@
             scanManager.terminal.log(`Backend: ${scanManager.backendUrl}`, 'info');
             scanManager.terminal.log('Enter target URL and click "INITIATE SCAN"', 'info');
             
-            // Optional: Test backend connection
-            // scanManager.terminal.log('Testing backend connection...', 'info');
-            // fetch(`${scanManager.backendUrl}/health`)
-            //     .then(r => r.json())
-            //     .then(data => scanManager.terminal.log('Backend connected ✓', 'success'))
-            //     .catch(err => scanManager.terminal.log('Backend connection failed', 'error'));
+            scanManager.checkBackendHealth();
         }, 500);
     });
     </script>
