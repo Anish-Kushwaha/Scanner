@@ -8,6 +8,7 @@ revalidates every redirect before following it.
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 import http.client
+import http.server
 import ipaddress
 import json
 import os
