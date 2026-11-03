@@ -86,7 +86,17 @@ async function getWorkerBase() {
     throw error;
   }
 
-  if (cachedWorkerBase && Date.now() - cachedAt < 15_000) return cachedWorkerBase;
+  if (cachedWorkerBase && Date.now() - cachedAt < 15_000) {
+    try {
+      const cachedHealth = await fetch(cachedWorkerBase + "/health", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(2000)
+      });
+      if (cachedHealth.ok) return cachedWorkerBase;
+    } catch {}
+    cachedWorkerBase = "";
+    cachedAt = 0;
+  }
   if (sandboxRequest) return sandboxRequest;
 
   sandboxRequest = (async () => {
@@ -126,7 +136,7 @@ async function getWorkerBase() {
       "        return False",
       "if not healthy():",
       "    log = open(root + '/worker.log', 'ab', buffering=0)",
-      "    subprocess.Popen([sys.executable, 'worker_server.py'], cwd=root, env=os.environ.copy(), stdout=log, stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)",
+      "    subprocess.Popen(['sudo', '-n', '-E', sys.executable, 'worker_server.py'], cwd=root, env=os.environ.copy(), stdout=log, stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)",
       "    log.close()",
       "for _ in range(40):",
       "    if healthy(): sys.exit(0)",
