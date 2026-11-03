@@ -1,8 +1,8 @@
 # Scanner v4.0
 
-**A low-impact HTTP security posture checker with a GitHub Pages frontend and a Vercel Python API.**
+**A low-impact HTTP security posture checker with a static Vercel frontend and a Python API.**
 
-Live interface: https://anish-kushwaha.github.io/Scanner  
+Live interface and backend: https://scanner-rose-rho.vercel.app  
 Backend health: https://scanner-rose-rho.vercel.app/health  
 Source: https://github.com/Anish-Kushwaha/Scanner
 
@@ -38,7 +38,7 @@ Base URL: `https://scanner-rose-rho.vercel.app`
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/` | Service metadata and available routes |
+| GET | `/` | Scanner web interface |
 | GET | `/health` | Health check |
 | POST | `/api/scan` | Run a low-impact HTTP posture assessment |
 | OPTIONS | `/api/scan` | Browser CORS preflight |
@@ -73,11 +73,14 @@ Only HTTP/HTTPS on standard ports 80/443 are supported. The service discards que
 
 ## Configuration
 
-The default allowed browser origin is:
+The built-in allowed browser origins are:
 
 ```text
+https://scanner-rose-rho.vercel.app
 https://anish-kushwaha.github.io
 ```
+
+The first is the production same-origin frontend. The GitHub Pages origin remains supported for an independently hosted copy.
 
 Set the Vercel environment variable `SCANNER_ALLOWED_ORIGINS` to a comma-separated list of exact origins only when an additional frontend origin is intentionally deployed. Do not include paths or trailing slashes.
 
@@ -92,11 +95,11 @@ python -m unittest discover -s tests -v
 python -m py_compile api/index.py
 ```
 
-The GitHub Actions workflow `.github/workflows/backend-tests.yml` runs the regression suite when backend files change. It covers URL validation, private-IP and mixed-DNS rejection, conservative header/cookie findings, redirect safety, and honest reporting of disabled port scanning.
+The GitHub Actions workflow `.github/workflows/backend-tests.yml` runs Python compile checks, backend regression tests, inline JavaScript syntax checks, and local-link/asset checks. It covers URL validation, private-IP and mixed-DNS rejection, CORS and authorization, rate limiting, conservative header/cookie findings, redirect safety, and honest reporting of disabled port scanning.
 
 ## Vercel deployment
 
-The repository is configured for Vercel's Python runtime. All routes are dispatched to `api/index.py`, which normalizes paths before routing so a trailing slash or query string does not accidentally turn a valid endpoint into a 404.
+The repository serves the four root HTML pages statically with Vercel's static builder and runs `api/index.py` as a Python function. Only `/health` and `/api/scan` are routed to the backend; ordinary page and asset requests are served by the filesystem. API path normalization handles trailing slashes and query strings.
 
 After deployment, verify:
 
@@ -110,7 +113,7 @@ The third request should return `405 Method Not Allowed` because the scan endpoi
 
 ## Android app
 
-The repository includes an Android WebView container under `android/`. It loads the hosted Scanner interface; the backend is still hosted separately on Vercel.
+The repository includes an Android WebView container under `android/`. It loads the same-origin production Scanner interface and API at `https://scanner-rose-rho.vercel.app`.
 
 Build a debug APK with JDK 17 and Android SDK installed:
 

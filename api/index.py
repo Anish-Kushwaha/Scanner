@@ -30,7 +30,10 @@ RATE_WINDOW_SECONDS = 60
 RATE_LIMIT_REQUESTS = 10
 MAX_RATE_LIMIT_KEYS = 4096
 
-DEFAULT_ALLOWED_ORIGINS = {"https://anish-kushwaha.github.io"}
+DEFAULT_ALLOWED_ORIGINS = {
+    "https://anish-kushwaha.github.io",
+    "https://scanner-rose-rho.vercel.app",
+}
 ALLOWED_ORIGINS = frozenset(
     origin.strip()
     for origin in os.environ.get(
@@ -574,6 +577,7 @@ def _rate_limit_key(request_handler):
     value = (
         request_handler.headers.get("x-vercel-forwarded-for")
         or request_handler.headers.get("x-real-ip")
+        or request_handler.headers.get("x-forwarded-for")
         or ""
     ).split(",", 1)[0].strip()
     if not value:

@@ -587,7 +587,7 @@
             <!-- DOWNLOAD BUTTON -->
             <div style="text-align: center; margin: 40px 0;">
                 <button onclick="downloadReport()" class="nav-btn" style="background: var(--success-color);">
-                    <i class="fas fa-download"></i> DOWNLOAD REAL SCAN REPORT
+                    <i class="fas fa-download"></i> DOWNLOAD ASSESSMENT REPORT
                 </button>
             </div>
         </div>
@@ -613,7 +613,9 @@
     <script>
     class RealVulnerabilityScanner {
         constructor() {
-            this.backendUrl = 'https://scanner-rose-rho.vercel.app';
+            this.backendUrl = window.location.hostname === 'anish-kushwaha.github.io'
+                ? 'https://scanner-rose-rho.vercel.app'
+                : window.location.origin;
             this.scanData = null;
             this.init();
         }

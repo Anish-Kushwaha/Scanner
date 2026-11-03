@@ -214,6 +214,19 @@ class ApiHandlerTests(unittest.TestCase):
         self.assertEqual(request.responses[0], 405)
         self.assertEqual(request.response_headers["allow"], "POST, OPTIONS")
 
+
+    def test_post_accepts_configured_vercel_frontend_origin_for_preflight(self):
+        request = self.make_handler(
+            "/api/scan",
+            {"Origin": "https://scanner-rose-rho.vercel.app"},
+        )
+        request.do_OPTIONS()
+        self.assertEqual(request.responses[0], 204)
+        self.assertEqual(
+            request.response_headers["access-control-allow-origin"],
+            "https://scanner-rose-rho.vercel.app",
+        )
+
     def test_post_requires_approved_frontend_origin(self):
         payload = json.dumps({
             "target": "https://example.com",

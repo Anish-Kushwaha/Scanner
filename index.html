@@ -6,7 +6,6 @@
     <title>🛡️ Scanner v4.0 | Home</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
     <style>
         /* Blue-Black Futuristic Theme */
         :root {
@@ -1060,7 +1059,7 @@
             <h1 class="glitch">VULNERABILITY SECURITY SCANNER</h1>
             <div class="version-tag">v4.0 <span class="pulse">☠️</span></div>
             <div class="subtitle">
-                Advanced Web Vulnerability & Network Security Scanner with Futuristic Web Interface
+                Low-impact HTTP Security Posture Assessment
             </div>
             
             <div class="creator-info">
@@ -1345,7 +1344,7 @@
                 </div>
                 <div class="page-content">
                     <h3>Vulnerability Details</h3>
-                    <p>Find weaknesses of the Target, Open Ports with their details, Admin Panel URLs, and security vulnerabilities.</p>
+                    <p>Review HTTP security-header, cookie, and TLS findings from the latest saved assessment. TCP ports and exploit tests are not scanned.</p>
                 </div>
             </a>
             
@@ -1369,13 +1368,13 @@
                 </div>
             </a>
             
-            <a href="https://scanner-rose-rho.vercel.app/" target="_blank" class="page-link-card">
+            <a href="/health" class="page-link-card">
                 <div class="page-icon">
                     <i class="fas fa-api"></i>
                 </div>
                 <div class="page-content">
-                    <h3>Live API Endpoint</h3>
-                    <p>Access the live vulnerability scanner API for automated scanning.</p>
+                    <h3>API Health</h3>
+                    <p>Check whether the Scanner backend is online and which API version is deployed.</p>
                 </div>
             </a>
         </div>
@@ -1457,7 +1456,9 @@
             this.isScanning = false;
             this.currentScan = null;
             // ✅ CORRECT BACKEND URL
-            this.backendUrl = 'https://scanner-rose-rho.vercel.app';
+            this.backendUrl = window.location.hostname === 'anish-kushwaha.github.io'
+                ? 'https://scanner-rose-rho.vercel.app'
+                : window.location.origin;
             this.scanStages = [
                 { id: 1, name: 'Target Validation', duration: 500 },
                 { id: 2, name: 'Safe Connection', duration: 500 },

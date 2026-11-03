@@ -23,7 +23,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 public class MainActivity extends Activity {
-    private static final String APP_URL = "https://anish-kushwaha.github.io/Scanner/";
+    private static final String APP_URL = "https://scanner-rose-rho.vercel.app/";
     private WebView webView;
     private LinearLayout errorPanel;
 
@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String host = uri.getHost() == null ? "" : uri.getHost();
-                if ("anish-kushwaha.github.io".equalsIgnoreCase(host)) return false;
+                if ("scanner-rose-rho.vercel.app".equalsIgnoreCase(host)) return false;
                 if ("https".equalsIgnoreCase(uri.getScheme())) {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, uri));
