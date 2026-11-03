@@ -1,6 +1,6 @@
 FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 SCANNER_WORKER_HOST=0.0.0.0 SCANNER_WORKER_PORT=8787 SCANNER_JOB_DIR=/data/jobs
-RUN apt-get update && apt-get install -y --no-install-recommends nmap ca-certificates docker.io && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends nmap ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY scanner_engine.py worker_server.py ./
 RUN mkdir -p /data/jobs && chmod 700 /data/jobs
