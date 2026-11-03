@@ -1686,6 +1686,7 @@
                 localStorage.setItem('vulnScanData', JSON.stringify(apiData));
                 localStorage.setItem('vulnScanTarget', originalTarget);
                 localStorage.setItem('vulnScanTime', new Date().toISOString());
+                localStorage.setItem('vulnScanReportVersion', '4.0.0');
             } catch (storageError) {
                 this.terminal.log('Report could not be cached in this browser: ' + storageError.message, 'warning');
             }
@@ -1765,77 +1766,10 @@
         }
 
         // Helper methods for geolocation (demo fallback)
-        getCountryFromIP(ip) {
-            if (!ip || ip.includes('Could not resolve')) return 'Unknown';
-            // Simple IP to country mapping (demo)
-            const ipMap = {
-                '93.184.216.34': 'United States', // example.com
-                '142.250.185.174': 'United States', // google.com
-                '192.168.1.1': 'Local Network',
-                '127.0.0.1': 'Localhost'
-            };
-            return ipMap[ip] || 'Unknown';
-        }
-
-        getLocationFromIP(ip) {
-            if (!ip || ip.includes('Could not resolve')) return 'Unknown';
-            return 'Server Location';
-        }
-
-        getISPFromIP(ip) {
-            if (!ip || ip.includes('Could not resolve')) return 'Unknown';
-            return 'Network Provider';
-        }
-
-        getCoordsFromIP(ip) {
-            if (!ip || ip.includes('Could not resolve')) return 'Unknown';
-            return 'Coordinates not available';
-        }
-
         extractVersion(serverString) {
             if (!serverString) return 'Unknown';
             const match = serverString.match(/\d+(\.\d+)+/);
             return match ? match[0] : 'Unknown';
-        }
-
-        // DEMO MODE (only used when API fails)
-        loadDemoResults(targetUrl) {
-            this.terminal.log('⚠️ Using demo data (API failed)', 'warning');
-            
-            const demoData = {
-                target: originalTarget,
-                network_info: {
-                    domain: new URL(targetUrl).hostname,
-                    ip: '93.184.216.34',
-                    port: new URL(targetUrl).port || 443,
-                    open_ports_count: 3,
-                    open_ports: [
-                        { port: 80, service: 'HTTP', banner: 'nginx/1.18.0' },
-                        { port: 443, service: 'HTTPS', banner: 'Apache/2.4.41' },
-                        { port: 22, service: 'SSH', banner: 'OpenSSH_8.2p1' }
-                    ]
-                },
-                vulnerabilities: [
-                    { type: 'XSS', risk: 'MEDIUM', description: 'Potential Cross-Site Scripting' }
-                ],
-                web_info: {
-                    server: 'nginx/1.18.0',
-                    headers: { 'X-Powered-By': 'PHP/7.4' },
-                    security_headers: {
-                        'X-Frame-Options': 'SAMEORIGIN',
-                        'X-Content-Type-Options': 'nosniff',
-                        'Content-Security-Policy': 'Not set',
-                        'X-XSS-Protection': '1; mode=block'
-                    }
-                },
-                summary: {
-                    total_vulnerabilities: 1,
-                    risk_level: 'MEDIUM',
-                    status: 'demo'
-                }
-            };
-            
-            this.processRealResults(demoData, targetUrl);
         }
 
         downloadReport() {
@@ -1919,26 +1853,41 @@
         });
         
         // Share results
-        document.getElementById('shareResults').addEventListener('click', () => {
+        document.getElementById('shareResults').addEventListener('click', async () => {
             if (!scanManager.currentScan) {
-                scanManager.terminal.log('No results to share', 'warning');
+                scanManager.terminal.log('No report is available to share', 'warning');
                 return;
             }
-            
-            const url = `https://anish-kushwaha.github.io/Scanner/vulnerabilities.html?scan=${Date.now()}`;
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Vulnerability Scan Results',
-                    text: `Scan results for ${scanManager.currentScan.target}`,
-                    url: url
-                });
-            } else {
-                navigator.clipboard.writeText(url);
-                scanManager.terminal.log('Results link copied to clipboard', 'success');
+
+            const reportText = JSON.stringify(scanManager.currentScan, null, 2);
+            try {
+                if (navigator.share && typeof File !== 'undefined') {
+                    const reportFile = new File(
+                        [reportText],
+                        'scanner-report-' + Date.now() + '.json',
+                        { type: 'application/json' }
+                    );
+                    const shareData = { title: 'Scanner assessment report', files: [reportFile] };
+                    if (!navigator.canShare || navigator.canShare(shareData)) {
+                        await navigator.share(shareData);
+                        scanManager.terminal.log('Assessment report shared', 'success');
+                        return;
+                    }
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(reportText);
+                    scanManager.terminal.log('Full report JSON copied to clipboard', 'success');
+                } else {
+                    scanManager.terminal.log('Sharing is unavailable here. Use Download Report instead.', 'warning');
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    scanManager.terminal.log('Unable to share report: ' + error.message, 'error');
+                }
             }
         });
-        
-        // Test backend connection on load
+
+                // Test backend connection on load
         setTimeout(() => {
             scanManager.terminal.log('System initialized', 'success');
             scanManager.terminal.log(`Backend: ${scanManager.backendUrl}`, 'info');
