@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=0.9">
-    <title>🛡️ Vulnerability Scanner v3.2 | Vulnerabilities</title>
+    <title>🛡️ Scanner v4.0 | Assessment Details</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
@@ -642,9 +642,21 @@
                 const scanTarget = localStorage.getItem('vulnScanTarget');
                 const scanTime = localStorage.getItem('vulnScanTime');
                 
-                if (scanData && scanTarget) {
-                    console.log('🔥 LOADING FROM HOME PAGE SCAN:', scanTarget);
-                    return JSON.parse(scanData);
+                const reportVersion = localStorage.getItem('vulnScanReportVersion');
+                const savedAt = Date.parse(scanTime || '');
+                if (
+                    scanData &&
+                    scanTarget &&
+                    reportVersion === '4.0.0' &&
+                    Number.isFinite(savedAt) &&
+                    savedAt <= Date.now() &&
+                    Date.now() - savedAt <= 24 * 60 * 60 * 1000
+                ) {
+                    const parsed = JSON.parse(scanData);
+                    if (parsed && parsed.scan_status === 'completed') {
+                        console.log('Loading recent Scanner v4 report:', scanTarget);
+                        return parsed;
+                    }
                 }
             } catch (e) {
                 console.error('🔥 ERROR LOADING SAVED DATA:', e);
@@ -674,7 +686,17 @@
             
             // Show results
             document.getElementById('scanResults').style.display = 'block';
-            
+
+            const oldBanner = document.getElementById('demoReportBanner');
+            if (oldBanner) oldBanner.remove();
+            if (this.scanData.is_demo) {
+                const banner = document.createElement('div');
+                banner.id = 'demoReportBanner';
+                banner.style.cssText = 'margin:0 0 18px;padding:14px 18px;border:1px solid #d69e2e;border-radius:12px;background:rgba(214,158,46,.12);color:var(--text-primary);font-weight:700';
+                banner.textContent = 'SYNTHETIC DEMO DATA — NO TARGET WAS SCANNED. These findings are examples only.';
+                document.getElementById('scanResults').prepend(banner);
+            }
+
             // Fill REAL data
             this.fillRealTargetInfo();
             this.fillRealGeolocation();
@@ -847,7 +869,7 @@
                 creator: "Anish Kushwaha",
                 website: "https://anish-kushwaha.github.io/Scanner",
                 api_endpoint: this.backendUrl,
-                note: "REAL SCAN DATA - NO DEMO BULLSHIT",
+                note: this.scanData.is_demo ? "SYNTHETIC DEMO DATA — NOT A REAL SCAN" : "LIVE NON-INVASIVE HTTP POSTURE ASSESSMENT",
                 ...this.scanData
             };
             
@@ -855,7 +877,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `REAL_VULN_SCAN_${Date.now()}.json`;
+            a.download = `SCANNER_ASSESSMENT_${Date.now()}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
