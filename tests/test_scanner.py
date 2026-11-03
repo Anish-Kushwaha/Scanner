@@ -5,8 +5,12 @@ import unittest
 from unittest.mock import patch
 
 from api.index import (
+    MAX_RATE_LIMIT_KEYS,
+    RATE_LIMIT_REQUESTS,
     ScanExecutionError,
     TargetValidationError,
+    _check_rate_limit,
+    _rate_events,
     analyze_security_posture,
     handler,
     normalize_target,
@@ -146,6 +150,39 @@ class ScanFlowTests(unittest.TestCase):
         with self.assertRaises(TargetValidationError):
             scan_target("https://example.com")
 
+
+
+
+class RateLimitTests(unittest.TestCase):
+    def setUp(self):
+        _rate_events.clear()
+
+    def tearDown(self):
+        _rate_events.clear()
+
+    @patch("api.index.time.monotonic")
+    def test_rate_limit_is_ten_requests_per_sixty_seconds(self, monotonic):
+        monotonic.return_value = 100.0
+        results = [_check_rate_limit("client-A") for _ in range(RATE_LIMIT_REQUESTS + 1)]
+        self.assertTrue(all(allowed for allowed, _ in results[:RATE_LIMIT_REQUESTS]))
+        self.assertFalse(results[-1][0])
+        self.assertGreaterEqual(results[-1][1], 1)
+
+    @patch("api.index.time.monotonic")
+    def test_rate_limit_entries_expire_and_allow_a_new_window(self, monotonic):
+        monotonic.return_value = 100.0
+        for _ in range(RATE_LIMIT_REQUESTS):
+            self.assertTrue(_check_rate_limit("client-A")[0])
+        self.assertFalse(_check_rate_limit("client-A")[0])
+        monotonic.return_value = 161.0
+        self.assertTrue(_check_rate_limit("client-A")[0])
+
+    @patch("api.index.time.monotonic")
+    def test_rate_limit_key_store_has_a_hard_memory_bound(self, monotonic):
+        monotonic.return_value = 100.0
+        for index in range(MAX_RATE_LIMIT_KEYS + 50):
+            self.assertTrue(_check_rate_limit(f"client-{index}")[0])
+        self.assertLessEqual(len(_rate_events), MAX_RATE_LIMIT_KEYS)
 
 
 class ApiHandlerTests(unittest.TestCase):
