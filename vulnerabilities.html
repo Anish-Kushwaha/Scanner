@@ -5,22 +5,65 @@
 </style></head><body><main class="wrap">
 <header class="top"><a class="brand" href="index.html">SCANNER <i> / REPORT</i></a><a class="btn" href="index.html">← Dashboard</a></header>
 <div class="eyebrow">Assessment archive · Local report</div><h1 class="title" id="target">No report available</h1><p class="muted" id="timestamp">Run an assessment from the dashboard to generate a report.</p>
+<p class="muted">Import a worker-generated JSON report to inspect network, web, and local assessment results.</p><input id="reportFile" type="file" accept=".json,application/json" aria-label="Import JSON assessment report">
 <section class="grid" id="metrics"></section>
 <section class="panel"><h2>Findings & recommendations</h2><div id="findings" class="empty">No report has been saved in this browser session.</div></section>
 <section class="panel"><h2>Technical details</h2><dl id="details"></dl></section>
-<div class="notice">Scope note: this is a non-invasive HTTP security posture assessment. Port enumeration, exploit-based testing, authenticated checks and comprehensive application testing are not performed. A clean report does not certify that a system is secure.</div>
+<div class="notice">Scope note: report capabilities depend on the worker tools and selected profile. Version fingerprints are not proof of exploitability. Scanner does not run destructive exploitation, credential attacks or denial-of-service tests. A clean report does not certify that a system is secure.</div>
 </main><script>
-const $=id=>document.getElementById(id),report=(()=>{try{return JSON.parse(localStorage.getItem("scanner.latestReport")||"null")}catch(_){return null}})();
-function node(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
-if(report){
- $("target").textContent=report.target||"Assessment report";$("timestamp").textContent="Generated "+(report.timestamp||"time unavailable")+" · "+(report.scan_id||"");
- const s=report.summary||{},n=report.network_info||{};
- [["Risk level",s.risk_level||"UNKNOWN"],["Findings",s.total_vulnerabilities??"—"],["HTTP status",report.web_info?.response_info?.status_code??"—"],["Port scan","Not performed"]].forEach(([k,v])=>{const m=node("div","metric");m.append(node("small","",k),node("strong","",String(v)));$("metrics").append(m)});
- $("findings").className="";$("findings").replaceChildren();
- const list=Array.isArray(report.vulnerabilities)?report.vulnerabilities:[];
- if(!list.length)$("findings").append(node("div","empty","No issues detected in the checks performed. This is not proof the target is secure."));
- list.forEach(f=>{const row=node("div","finding"),sev=node("span","sev "+String(f.risk||"INFO").toUpperCase(),String(f.risk||"INFO")),body=node("div");body.append(node("strong","",f.type||"Finding"),node("p","",f.description||""),node("p","","Recommendation: "+(f.recommendation||"Review configuration.")));row.append(sev,body);$("findings").append(row)});
- const fields=[["Scan ID",report.scan_id],["Target",report.target],["IP address",n.ip],["Protocol",n.protocol],["Server",report.web_info?.server],["TLS",report.web_info?.tls?.version],["Duration",s.scan_duration_ms==null?null:s.scan_duration_ms+" ms"],["Ports","Not tested"]];
- fields.forEach(([k,v])=>{$("details").append(node("dt","",k),node("dd","",v==null?"Not available":String(v)))});
+const $=id=>document.getElementById(id);
+function node(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=String(text);return e}
+function render(report){
+ $("metrics").replaceChildren();$("findings").replaceChildren();$("details").replaceChildren();
+ $("target").textContent=report.target||"Assessment report";
+ $("timestamp").textContent="Generated "+(report.generated_at||report.timestamp||"time unavailable")+" · "+(report.scan_id||"");
+ const summary=report.summary||{},network=report.network||report.network_info||{},web=report.web||report.web_info||{};
+ const ports=(network.hosts||[]).flatMap(h=>h.ports||[]).filter(p=>p.state==="open").length;
+ const metrics=[
+ ["Risk level",summary.risk_level||"UNKNOWN"],
+ ["Findings",summary.total_findings??summary.total_vulnerabilities??(report.findings||report.vulnerabilities||[]).length],
+ ["Hosts",network.host_count??(network.hosts||[]).length],
+ ["Open ports",network.open_ports_count??(summary.port_scan_performed? "—":"Not scanned")]
+ ];
+ metrics.forEach(([k,v])=>{const m=node("div","metric");m.append(node("small","",k),node("strong","",v));$("metrics").append(m)});
+ const list=Array.isArray(report.findings)?report.findings:(Array.isArray(report.vulnerabilities)?report.vulnerabilities:[]);
+ if(!list.length)$("findings").append(node("div","empty","No issues detected by the checks that ran. This is not proof the target is secure."));
+ list.forEach(f=>{
+  const severity=String(f.severity||f.risk||"INFO").toUpperCase();
+  const row=node("div","finding"),sev=node("span","sev "+severity,severity),body=node("div");
+  body.append(node("strong","",f.title||f.type||"Finding"),
+   node("p","",f.description||""),
+   node("p","","Asset: "+(f.asset||report.target||"Not specified")),
+   node("p","","Confidence: "+(f.confidence||"Not supplied")),
+   node("p","","Evidence: "+(f.evidence||"Not supplied")),
+   node("p","","Recommendation: "+(f.remediation||f.recommendation||"Review manually.")));
+  row.append(sev,body);$("findings").append(row);
+ });
+ const details=[
+ ["Schema",report.schema_version||"Legacy report"],["Scan ID",report.scan_id],["Profile",report.profile],
+ ["Duration",summary.scan_duration_ms!=null?summary.scan_duration_ms+" ms":report.duration_ms!=null?report.duration_ms+" ms":null],
+ ["Resolved addresses",(network.addresses_resolved||[]).join(", ")||network.ip],
+ ["Hosts discovered",network.host_count??(network.hosts||[]).length],
+ ["Open ports",network.open_ports_count??ports],
+ ["Network engine",network.engine||"Not available"],
+ ["Web status",web.status??web.response_info?.status_code],
+ ["Pages crawled",web.pages_checked],
+ ["TLS version",web.tls?.version||web.tls?.error],
+ ["TLS certificate expiry",web.tls?.expires],
+ ["ZAP baseline",report.zap?.status],
+ ["Local assessment",report.local_assessment?.status],
+ ["Authorization attested",report.authorization?.attested],
+ ["Capabilities",JSON.stringify(report.capabilities||{},null,0)],
+ ["Limitations",(report.limitations||[]).join(" · ")]
+ ];
+ details.forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!==""){ $("details").append(node("dt","",k),node("dd","",String(v))) }});
 }
+let current=(()=>{try{return JSON.parse(localStorage.getItem("scanner.latestReport")||"null")}catch(_){return null}})();
+if(current)render(current);
+$("reportFile").addEventListener("change",async e=>{
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ try{const parsed=JSON.parse(await file.text());if(!parsed||typeof parsed!=="object")throw new Error("Invalid report");
+  current=parsed;localStorage.setItem("scanner.latestReport",JSON.stringify(parsed));render(parsed);
+ }catch(err){$("target").textContent="Unable to read report";$("timestamp").textContent=err.message||"Invalid JSON report";}
+});
 </script></body></html>
