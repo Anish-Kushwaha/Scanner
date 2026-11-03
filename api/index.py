@@ -1,789 +1,742 @@
-from http.server import BaseHTTPRequestHandler
+"""Safe, low-impact HTTP security posture scanner for Vercel.
+
+This public endpoint deliberately does not perform exploitation, directory
+brute forcing, or TCP port enumeration. It fetches only the requested page,
+validates every DNS result, pins the connection to a validated public IP, and
+revalidates every redirect before following it.
+"""
+from collections import defaultdict, deque
+from datetime import datetime, timezone
+import http.client
+import ipaddress
 import json
-import requests
-import socket
+import os
 import re
+import socket
+import ssl
+import threading
 import time
-from urllib.parse import urlparse, urljoin
-from datetime import datetime
-import sys
+import uuid
+from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
-# Disable SSL warnings
-requests.packages.urllib3.disable_warnings()
 
-class handler(BaseHTTPRequestHandler):
-    
-    def do_OPTIONS(self):
-        """Handle CORS preflight requests"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
-    
-    def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            
-            response = {
-                "name": "⚠️ VULNERABILITY SECURITY SCANNER",
-                "version": "3.2",
-                "author": "ANISH KUSHWAHA",
-                "website": "Anish-kushwaha.b1zisites.com",
-                "email": "Anish-Kushwaha@zohomail.in",
-                "endpoints": {
-                    "scan": "POST /api/scan with JSON: {\"target\": \"url\"}",
-                    "health": "GET /health"
-                },
-                "features": [
-                    "Port Scanning",
-                    "Geolocation Lookup",
-                    "Server Detection",
-                    "SQL Injection Testing",
-                    "XSS Vulnerability Testing",
-                    "Directory Bruteforce",
-                    "Security Headers Check"
-                ],
-                "warning": "Unauthorized scanning is illegal. Use only on systems you own or have permission for."
-            }
-            self.wfile.write(json.dumps(response, indent=2).encode())
-            
-        elif self.path == '/health':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "status": "healthy",
-                "timestamp": datetime.now().isoformat(),
-                "service": "Vulnerability Scanner API",
-                "version": "3.2"
-            }).encode())
-            
-        elif self.path == '/api/scan':
-            # Demo response for GET request
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "message": "Use POST method with JSON: {\"target\": \"url\"}",
-                "example": {"target": "https://example.com"},
-                "demo_data": self.get_demo_data()
-            }).encode())
-            
-        else:
-            self.send_response(404)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "error": "Endpoint not found",
-                "available_endpoints": ["/", "/health", "/api/scan (POST)"]
-            }).encode())
-    
-    def do_POST(self):
-        if self.path == '/api/scan':
-            try:
-                # Read JSON data
-                content_length = int(self.headers['Content-Length'])
-                post_data = self.rfile.read(content_length)
-                data = json.loads(post_data)
-                target = data.get('target', '').strip()
-                
-                if not target:
-                    self.send_response(400)
-                    self.send_header('Content-type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.end_headers()
-                    self.wfile.write(json.dumps({
-                        "error": "Target URL is required",
-                        "example": {"target": "https://example.com"}
-                    }).encode())
-                    return
-                
-                print(f"[SCAN] Starting vulnerability scan for: {target}")
-                
-                # Run full vulnerability scan
-                scan_results = self.full_vulnerability_scan(target)
-                
-                # Send response
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps(scan_results, indent=2).encode())
-                
-            except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header('Content-type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    "error": "Invalid JSON format",
-                    "example": {"target": "https://example.com"}
-                }).encode())
-                
-            except Exception as e:
-                self.send_response(500)
-                self.send_header('Content-type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    "error": f"Scanner error: {str(e)}",
-                    "target": target if 'target' in locals() else "unknown"
-                }).encode())
-        else:
-            self.send_response(404)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "error": "Endpoint not found"
-            }).encode())
-    
-    # ================= SCANNER FUNCTIONS =================
-    
-    def full_vulnerability_scan(self, target_url):
-        """Complete vulnerability scanner with all features"""
-        print(f"[SCAN] Starting comprehensive scan for: {target_url}")
-        
-        results = {
-            "scan_id": f"scan_{int(time.time())}",
-            "target": target_url,
-            "timestamp": datetime.now().isoformat(),
-            "scan_type": "Full Security Audit",
-            "scan_status": "completed",
-            "vulnerabilities": [],
-            "network_info": {},
-            "web_info": {},
-            "geolocation": {},
-            "technologies": [],
-            "summary": {}
-        }
-        
+VERSION = "4.0.0"
+MAX_BODY_BYTES = 8192
+MAX_RESPONSE_BYTES = 64 * 1024
+MAX_REDIRECTS = 2
+REQUEST_TIMEOUT_SECONDS = 2.5
+RATE_WINDOW_SECONDS = 15 * 60
+RATE_LIMIT_REQUESTS = 5
+
+DEFAULT_ALLOWED_ORIGINS = {"https://anish-kushwaha.github.io"}
+ALLOWED_ORIGINS = frozenset(
+    origin.strip()
+    for origin in os.environ.get(
+        "SCANNER_ALLOWED_ORIGINS",
+        ",".join(sorted(DEFAULT_ALLOWED_ORIGINS)),
+    ).split(",")
+    if origin.strip()
+)
+
+_rate_lock = threading.Lock()
+_rate_events = defaultdict(deque)
+
+
+class TargetValidationError(ValueError):
+    """The requested target is malformed or outside the safe scan policy."""
+
+
+class ScanExecutionError(RuntimeError):
+    """The target could not be fetched safely."""
+
+
+def normalize_target(raw_target):
+    """Normalize an HTTP(S) URL while discarding query strings and fragments."""
+    if not isinstance(raw_target, str):
+        raise TargetValidationError("Target must be a URL string.")
+
+    value = raw_target.strip()
+    if not value:
+        raise TargetValidationError("A target URL is required.")
+    if len(value) > 2048:
+        raise TargetValidationError("Target URL is too long.")
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise TargetValidationError("Target URL contains invalid control characters.")
+
+    if not re.match(r"^https?://", value, re.IGNORECASE):
+        value = "https://" + value
+
+    try:
+        parsed = urlsplit(value)
+        scheme = parsed.scheme.lower()
+        host = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        raise TargetValidationError("Target URL is malformed.") from None
+
+    if scheme not in {"http", "https"}:
+        raise TargetValidationError("Only HTTP and HTTPS targets are supported.")
+    if not host:
+        raise TargetValidationError("Target URL must include a hostname.")
+    if parsed.username is not None or parsed.password is not None:
+        raise TargetValidationError("URLs containing credentials are not allowed.")
+
+    try:
+        ipaddress.ip_address(host)
+        normalized_host = host.lower()
+    except ValueError:
         try:
-            # Auto-fix URL scheme if missing
-            if not urlparse(target_url).scheme:
-                target_url = "https://" + target_url
-                results["target_fixed"] = target_url
-            
-            # Parse URL
-            parsed = urlparse(target_url)
-            domain = parsed.netloc.split(':')[0]
-            port = parsed.port or (443 if parsed.scheme == 'https' else 80)
-            protocol = parsed.scheme
-            
-            print(f"[INFO] Parsed: Domain={domain}, Port={port}, Protocol={protocol}")
-            
-            # 1. Get IP address
-            ip_address = self.resolve_dns(domain)
-            results["network_info"]["domain"] = domain
-            results["network_info"]["ip"] = ip_address if ip_address else "Could not resolve"
-            results["network_info"]["port"] = port
-            results["network_info"]["protocol"] = protocol
-            
-            if ip_address and ip_address != "Could not resolve":
-                print(f"[INFO] Resolved IP: {ip_address}")
-                
-                # 2. Get geolocation
-                print("[INFO] Getting geolocation...")
-                results["geolocation"] = self.get_geolocation(ip_address)
-                
-                # 3. Port scan
-                print("[INFO] Starting port scan...")
-                open_ports = self.port_scan(ip_address)
-                results["network_info"]["open_ports"] = open_ports
-                results["network_info"]["open_ports_count"] = len(open_ports)
-                
-                # Check for vulnerable services
-                for port_info in open_ports:
-                    if port_info["service"] in ["ftp", "telnet"]:
-                        results["vulnerabilities"].append({
-                            "id": f"vuln_{len(results['vulnerabilities']) + 1}",
-                            "type": "Insecure Service",
-                            "service": port_info["service"],
-                            "port": port_info["port"],
-                            "risk": "MEDIUM",
-                            "description": f"{port_info['service'].upper()} service exposed on default port (no encryption)",
-                            "recommendation": "Use SFTP/SSH instead of FTP/Telnet"
-                        })
-                    
-                    # Check for outdated services in banner
-                    banner = port_info.get("banner", "").lower()
-                    if "apache/2.2" in banner:
-                        results["vulnerabilities"].append({
-                            "id": f"vuln_{len(results['vulnerabilities']) + 1}",
-                            "type": "Outdated Software",
-                            "service": "Apache",
-                            "version": "2.2",
-                            "risk": "HIGH",
-                            "description": "Outdated Apache version 2.2 detected",
-                            "cve": "CVE-2017-5638"
-                        })
-            
-            # 4. Web vulnerability checks
-            print("[INFO] Checking web vulnerabilities...")
-            web_results = self.web_vulnerability_checks(target_url)
-            results["web_info"] = web_results
-            
-            # Add server warnings as vulnerabilities
-            for warning in web_results.get("warnings", []):
-                results["vulnerabilities"].append({
-                    "id": f"vuln_{len(results['vulnerabilities']) + 1}",
-                    "type": "Server Configuration",
-                    "risk": "MEDIUM",
-                    "description": warning,
-                    "recommendation": "Update to latest stable version"
-                })
-            
-            # 5. SQL Injection test
-            print("[INFO] Testing for SQL Injection...")
-            sqli_results = self.test_sql_injection(target_url)
-            if sqli_results["vulnerable"]:
-                results["vulnerabilities"].append({
-                    "id": f"vuln_{len(results['vulnerabilities']) + 1}",
-                    "type": "SQL Injection",
-                    "risk": "CRITICAL",
-                    "description": sqli_results["description"],
-                    "payload": sqli_results["payload"],
-                    "url": sqli_results.get("url", target_url),
-                    "recommendation": "Use parameterized queries and input validation"
-                })
-            
-            # 6. XSS test
-            print("[INFO] Testing for XSS...")
-            xss_results = self.test_xss(target_url)
-            if xss_results["vulnerable"]:
-                results["vulnerabilities"].append({
-                    "id": f"vuln_{len(results['vulnerabilities']) + 1}",
-                    "type": "Cross-Site Scripting (XSS)",
-                    "risk": "HIGH",
-                    "description": xss_results["description"],
-                    "payload": xss_results["payload"],
-                    "url": xss_results.get("url", target_url),
-                    "recommendation": "Implement proper output encoding and Content Security Policy"
-                })
-            
-            # 7. Directory brute force
-            print("[INFO] Scanning for exposed directories...")
-            exposed_dirs = self.brute_force_directories(target_url)
-            if exposed_dirs:
-                results["vulnerabilities"].append({
-                    "id": f"vuln_{len(results['vulnerabilities']) + 1}",
-                    "type": "Exposed Directories",
-                    "risk": "MEDIUM",
-                    "description": f"Found {len(exposed_dirs)} exposed directories",
-                    "count": len(exposed_dirs),
-                    "directories": exposed_dirs[:5],  # Show first 5
-                    "recommendation": "Restrict access to sensitive directories"
-                })
-            
-            # 8. Security headers check
-            print("[INFO] Checking security headers...")
-            headers_check = self.check_security_headers(target_url)
-            results["web_info"]["security_headers"] = headers_check
-            
-            # Add missing headers as vulnerabilities
-            missing_headers = headers_check.get("missing_headers", [])
-            if missing_headers:
-                results["vulnerabilities"].append({
-                    "id": f"vuln_{len(results['vulnerabilities']) + 1}",
-                    "type": "Missing Security Headers",
-                    "risk": "MEDIUM",
-                    "description": f"Missing {len(missing_headers)} security headers",
-                    "missing_headers": missing_headers,
-                    "recommendation": "Implement proper security headers"
-                })
-            
-            # 9. Technology detection
-            results["technologies"] = web_results.get("technologies", [])
-            
-            # 10. Generate summary
-            vuln_count = len(results["vulnerabilities"])
-            results["summary"] = {
-                "total_vulnerabilities": vuln_count,
-                "risk_level": self.calculate_risk_level(results["vulnerabilities"]),
-                "open_ports": results["network_info"].get("open_ports_count", 0),
-                "technologies_found": len(results["technologies"]),
-                "scan_duration": "completed",
-                "status": "success"
-            }
-            
-            print(f"[SUCCESS] Scan completed. Found {vuln_count} vulnerabilities.")
-            
-        except Exception as e:
-            print(f"[ERROR] Scan failed: {str(e)}")
-            results["error"] = str(e)
-            results["scan_status"] = "failed"
-            results["summary"] = {
-                "status": "error",
-                "error": str(e),
-                "total_vulnerabilities": 0,
-                "risk_level": "UNKNOWN"
-            }
-        
-        return results
-    
-    def resolve_dns(self, domain):
-        """Resolve domain to IP address"""
+            normalized_host = host.rstrip(".").encode("idna").decode("ascii").lower()
+        except UnicodeError:
+            raise TargetValidationError("Target hostname is invalid.") from None
+
+        if (
+            not normalized_host
+            or len(normalized_host) > 253
+            or not re.fullmatch(r"[a-z0-9.-]+", normalized_host)
+            or normalized_host.startswith(".")
+            or normalized_host.endswith(".")
+            or ".." in normalized_host
+            or any(
+                not label
+                or len(label) > 63
+                or label.startswith("-")
+                or label.endswith("-")
+                for label in normalized_host.split(".")
+            )
+        ):
+            raise TargetValidationError("Target hostname is invalid.")
+
+    expected_port = 443 if scheme == "https" else 80
+    if port is not None and port != expected_port:
+        raise TargetValidationError(
+            "Only standard web ports are enabled (HTTP 80 and HTTPS 443)."
+        )
+
+    host_for_url = (
+        "[" + normalized_host + "]" if ":" in normalized_host else normalized_host
+    )
+    path = quote(
+        unquote(parsed.path or "/"),
+        safe="/%:@!$&'()*+,;=-._~",
+    )
+    if len(path) > 1024:
+        raise TargetValidationError("Target path is too long.")
+
+    return urlunsplit((scheme, host_for_url, path, "", ""))
+
+
+def is_public_address(value):
+    """Return True only for globally routable unicast IP addresses."""
+    try:
+        address = ipaddress.ip_address(value.split("%", 1)[0])
+    except ValueError:
+        return False
+
+    return (
+        address.is_global
+        and not address.is_private
+        and not address.is_loopback
+        and not address.is_link_local
+        and not address.is_multicast
+        and not address.is_reserved
+        and not address.is_unspecified
+    )
+
+
+def resolve_public_addresses(hostname):
+    """Resolve a host and reject it if any DNS answer is not globally routable."""
+    try:
+        literal = ipaddress.ip_address(hostname)
+        resolved = [str(literal)]
+    except ValueError:
         try:
-            return socket.gethostbyname(domain)
-        except socket.gaierror as e:
-            print(f"[DNS] Failed to resolve {domain}: {e}")
-            return None
-        except Exception as e:
-            print(f"[DNS] Error resolving {domain}: {e}")
-            return None
-    
-    def get_geolocation(self, ip):
-        """Get geolocation information for IP address"""
-        try:
-            print(f"[GEOLOCATION] Looking up {ip}...")
-            response = requests.get(f"http://ip-api.com/json/{ip}", timeout=10)
-            data = response.json()
-            
-            if data.get("status") == "success":
-                return {
-                    "country": data.get("country", "Unknown"),
-                    "country_code": data.get("countryCode", "Unknown"),
-                    "region": data.get("regionName", "Unknown"),
-                    "city": data.get("city", "Unknown"),
-                    "isp": data.get("isp", "Unknown"),
-                    "organization": data.get("org", "Unknown"),
-                    "latitude": data.get("lat"),
-                    "longitude": data.get("lon"),
-                    "timezone": data.get("timezone", "Unknown"),
-                    "zip": data.get("zip", "Unknown")
-                }
+            records = socket.getaddrinfo(
+                hostname,
+                None,
+                family=socket.AF_UNSPEC,
+                type=socket.SOCK_STREAM,
+            )
+        except socket.gaierror:
+            raise TargetValidationError("Target hostname could not be resolved.") from None
+
+        resolved = []
+        for record in records:
+            address = record[4][0]
+            if address not in resolved:
+                resolved.append(address)
+
+    if not resolved:
+        raise TargetValidationError("Target hostname did not resolve to an IP address.")
+    if any(not is_public_address(address) for address in resolved):
+        raise TargetValidationError(
+            "Private, local, reserved, or non-public IP destinations are blocked."
+        )
+
+    return resolved
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection pinned to a validated IP while preserving TLS SNI."""
+
+    def __init__(self, address, hostname, port, timeout):
+        self._tls_hostname = hostname
+        context = ssl.create_default_context()
+        super().__init__(host=address, port=port, timeout=timeout, context=context)
+
+    def connect(self):
+        sock = socket.create_connection(
+            (self.host, self.port),
+            self.timeout,
+            self.source_address,
+        )
+        if self._tunnel_host:
+            self._tunnel()
+        self.sock = self._context.wrap_socket(
+            sock,
+            server_hostname=self._tls_hostname,
+        )
+
+
+def _request_once(parsed, validated_ip):
+    """Issue one bounded GET request to a validated, pinned destination IP."""
+    scheme = parsed.scheme
+    hostname = parsed.hostname
+    port = 443 if scheme == "https" else 80
+    if scheme == "https":
+        connection = _PinnedHTTPSConnection(
+            validated_ip,
+            hostname,
+            port,
+            REQUEST_TIMEOUT_SECONDS,
+        )
+    else:
+        connection = http.client.HTTPConnection(
+            validated_ip,
+            port=port,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+
+    host_header = ("[" + hostname + "]") if ":" in hostname else hostname
+    try:
+        connection.request(
+            "GET",
+            parsed.path or "/",
+            headers={
+                "Host": host_header,
+                "User-Agent": "Scanner-SafeAudit/4.0 (+https://github.com/Anish-Kushwaha/Scanner)",
+                "Accept": "text/html,application/xhtml+xml,*/*;q=0.1",
+                "Accept-Encoding": "identity",
+                "Connection": "close",
+            },
+        )
+        response = connection.getresponse()
+        body = response.read(MAX_RESPONSE_BYTES + 1)
+        truncated = len(body) > MAX_RESPONSE_BYTES
+        if truncated:
+            body = body[:MAX_RESPONSE_BYTES]
+
+        headers = {}
+        set_cookies = []
+        for name, value in response.getheaders():
+            key = name.lower()
+            if key == "set-cookie":
+                if len(set_cookies) < 10:
+                    set_cookies.append(value[:512])
             else:
-                return {"error": "Geolocation lookup failed", "message": data.get("message", "Unknown error")}
-        except requests.exceptions.Timeout:
-            return {"error": "Geolocation timeout"}
-        except Exception as e:
-            return {"error": f"Geolocation error: {str(e)}"}
-    
-    def port_scan(self, ip, ports=None):
-        """Scan common ports on target IP"""
-        if ports is None:
-            ports = [21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 
-                     3306, 3389, 5900, 8080, 8443, 8888]
-        
-        open_ports = []
-        
-        print(f"[PORT SCAN] Scanning {len(ports)} ports on {ip}")
-        
-        for port in ports:
-            try:
-                # Create socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)
-                
-                # Try to connect
-                start_time = time.time()
-                result = sock.connect_ex((ip, port))
-                connect_time = int((time.time() - start_time) * 1000)  # ms
-                
-                if result == 0:  # Port is open
-                    banner = self.get_banner(ip, port)
-                    service = self.get_service_name(port)
-                    
-                    open_ports.append({
-                        "port": port,
-                        "service": service,
-                        "status": "open",
-                        "banner": banner[:200] if banner else "No banner",
-                        "response_time_ms": connect_time,
-                        "protocol": "tcp"
-                    })
-                    print(f"[PORT] {port}/tcp OPEN - {service}")
-                
-                sock.close()
-                
-            except socket.timeout:
-                continue
-            except Exception as e:
-                continue
-        
-        return open_ports
-    
-    def get_banner(self, ip, port):
-        """Try to get banner from open port"""
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(3)
-            sock.connect((ip, port))
-            
-            # Send appropriate probe based on port
-            if port in [80, 443, 8080, 8443, 8888]:
-                sock.send(b"HEAD / HTTP/1.0\r\nHost: example.com\r\n\r\n")
-            elif port == 21:
-                sock.send(b"\r\n")
-            elif port == 22:
-                sock.send(b"SSH-2.0-Client\r\n")
-            elif port == 25:
-                sock.send(b"EHLO example.com\r\n")
-            elif port == 110:
-                sock.send(b"USER test\r\n")
-            elif port == 143:
-                sock.send(b"a1 LOGIN\r\n")
-            
-            # Receive response
-            sock.settimeout(2)
-            banner = sock.recv(1024).decode('utf-8', errors='ignore').strip()
-            sock.close()
-            
-            return banner
-            
-        except Exception as e:
-            return ""
-    
-    def get_service_name(self, port):
-        """Get service name from port number"""
-        services = {
-            21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
-            53: "DNS", 80: "HTTP", 110: "POP3", 139: "NetBIOS",
-            143: "IMAP", 443: "HTTPS", 445: "SMB", 3306: "MySQL",
-            3389: "RDP", 5900: "VNC", 8080: "HTTP Proxy",
-            8443: "HTTPS-alt", 8888: "HTTP-alt"
-        }
-        return services.get(port, f"Unknown ({port})")
-    
-    def web_vulnerability_checks(self, url):
-        """Check web vulnerabilities and detect technologies"""
-        results = {
-            "server_info": {},
-            "headers": {},
-            "warnings": [],
-            "technologies": [],
-            "response_info": {}
-        }
-        
-        try:
-            print(f"[WEB] Testing {url}")
-            response = requests.get(url, timeout=15, verify=False, allow_redirects=True)
-            
-            # Basic response info
-            results["response_info"]["status_code"] = response.status_code
-            results["response_info"]["url"] = response.url
-            results["response_info"]["redirects"] = len(response.history)
-            results["response_info"]["content_length"] = len(response.content)
-            results["response_info"]["encoding"] = response.encoding
-            
-            # Headers
-            results["headers"] = dict(response.headers)
-            
-            # Server detection
-            server_header = response.headers.get('Server', '')
-            powered_by = response.headers.get('X-Powered-By', '')
-            
-            results["server_info"]["server"] = server_header
-            results["server_info"]["powered_by"] = powered_by
-            
-            # Technology detection from headers
-            tech_detected = set()
-            
-            # Server type
-            if "nginx" in server_header.lower():
-                tech_detected.add("nginx")
-            if "apache" in server_header.lower():
-                tech_detected.add("apache")
-            if "iis" in server_header.lower():
-                tech_detected.add("iis")
-            if "cloudflare" in server_header.lower():
-                tech_detected.add("cloudflare")
-            
-            # Backend technologies
-            if "php" in powered_by.lower():
-                tech_detected.add("php")
-            if "asp.net" in powered_by.lower():
-                tech_detected.add("asp.net")
-            if "node.js" in powered_by.lower():
-                tech_detected.add("node.js")
-            
-            # Framework detection from HTML
-            html_content = response.text.lower()
-            
-            # CMS detection
-            if "wordpress" in html_content or "wp-content" in html_content or "wp-includes" in html_content:
-                tech_detected.add("wordpress")
-            if "joomla" in html_content:
-                tech_detected.add("joomla")
-            if "drupal" in html_content:
-                tech_detected.add("drupal")
-            
-            # JavaScript frameworks
-            if "react" in html_content:
-                tech_detected.add("react")
-            if "vue" in html_content:
-                tech_detected.add("vue.js")
-            if "angular" in html_content:
-                tech_detected.add("angular")
-            
-            results["technologies"] = list(tech_detected)
-            
-            # Vulnerability warnings
-            if "Apache/2.2" in server_header:
-                results["warnings"].append("Outdated Apache 2.2 detected (CVE-2017-5638)")
-            if "nginx/1." in server_header and "nginx/1.18" not in server_header:
-                results["warnings"].append("Outdated nginx version detected")
-            if "PHP/5." in powered_by:
-                results["warnings"].append("Outdated PHP 5.x detected (end of life)")
-            
-            # Check for exposed information
-            if "phpinfo" in html_content:
-                results["warnings"].append("phpinfo() page may be exposed")
-            if "database error" in html_content or "sql error" in html_content:
-                results["warnings"].append("Database error messages exposed")
-            
-        except requests.exceptions.Timeout:
-            results["error"] = "Connection timeout"
-        except requests.exceptions.ConnectionError:
-            results["error"] = "Connection failed"
-        except requests.exceptions.SSLError:
-            results["error"] = "SSL certificate error"
-        except Exception as e:
-            results["error"] = f"Web check error: {str(e)}"
-        
-        return results
-    
-    def test_sql_injection(self, url):
-        """Test for SQL Injection vulnerabilities"""
-        payloads = [
-            "' OR '1'='1",
-            "' OR '1'='1' --",
-            "' UNION SELECT NULL--",
-            "admin' --",
-            "\" OR \"1\"=\"1",
-            "1' OR '1'='1"
-        ]
-        
-        for payload in payloads:
-            test_url = f"{url}?id={payload}"
-            try:
-                response = requests.get(test_url, timeout=5, verify=False)
-                content = response.text.lower()
-                
-                # Common SQL error patterns
-                sql_errors = [
-                    "sql", "syntax", "mysql", "postgresql", "oracle",
-                    "database", "query", "odbc", "jdbc", "pdo"
-                ]
-                
-                for error in sql_errors:
-                    if error in content:
-                        return {
-                            "vulnerable": True,
-                            "payload": payload,
-                            "url": test_url,
-                            "description": f"SQL Injection detected with payload: {payload}",
-                            "error_indicator": error
-                        }
-            except:
-                continue
-        
-        return {"vulnerable": False, "description": "No SQL Injection vulnerabilities detected"}
-    
-    def test_xss(self, url):
-        """Test for Cross-Site Scripting vulnerabilities"""
-        payloads = [
-            "<script>alert('XSS')</script>",
-            "\"><script>alert('XSS')</script>",
-            "'><script>alert('XSS')</script>",
-            "<img src=x onerror=alert('XSS')>",
-            "<svg onload=alert('XSS')>"
-        ]
-        
-        for payload in payloads:
-            test_url = f"{url}?q={requests.utils.quote(payload)}"
-            try:
-                response = requests.get(test_url, timeout=5, verify=False)
-                
-                # Check if payload appears unescaped in response
-                if payload in response.text:
-                    return {
-                        "vulnerable": True,
-                        "payload": payload,
-                        "url": test_url,
-                        "description": "XSS vulnerability detected",
-                        "type": "Reflected XSS"
-                    }
-            except:
-                continue
-        
-        return {"vulnerable": False, "description": "No XSS vulnerabilities detected"}
-    
-    def brute_force_directories(self, base_url):
-        """Brute force common directories and files"""
-        common_paths = [
-            # Administration panels
-            "/admin", "/administrator", "/wp-admin", "/wp-login.php",
-            "/admin/login", "/admin/index.php", "/admin/admin.php",
-            
-            # Configuration files
-            "/.env", "/config.php", "/configuration.php", "/settings.php",
-            "/config.json", "/config.yaml", "/config.yml",
-            
-            # Backup files
-            "/backup", "/backup.zip", "/backup.tar.gz", "/backup.sql",
-            "/database.sql", "/dump.sql", "/backup/database.sql",
-            
-            # Development files
-            "/.git", "/.git/config", "/.git/HEAD",
-            "/package.json", "/composer.json", "/requirements.txt",
-            
-            # Information disclosure
-            "/phpinfo.php", "/info.php", "/test.php", "/debug.php",
-            "/server-status", "/server-info",
-            
-            # API endpoints
-            "/api", "/api/v1", "/graphql", "/graphql.php",
-            "/swagger", "/swagger.json", "/openapi.json",
-            
-            # Common directories
-            "/uploads", "/images", "/assets", "/css", "/js",
-            "/logs", "/temp", "/tmp", "/cache"
-        ]
-        
-        exposed = []
-        
-        for path in common_paths:
-            try:
-                full_url = urljoin(base_url, path)
-                response = requests.get(full_url, timeout=3, verify=False)
-                
-                if response.status_code == 200:
-                    exposed.append({
-                        "url": full_url,
-                        "status_code": response.status_code,
-                        "path": path,
-                        "content_length": len(response.content)
-                    })
-                    
-            except requests.exceptions.Timeout:
-                continue
-            except:
-                continue
-        
-        return exposed
-    
-    def check_security_headers(self, url):
-        """Check for security headers"""
-        try:
-            response = requests.head(url, timeout=10, verify=False, allow_redirects=True)
-            headers = response.headers
-            
-            security_headers = {
-                "X-Frame-Options": "Prevents clickjacking",
-                "X-Content-Type-Options": "Prevents MIME type sniffing",
-                "X-XSS-Protection": "Cross-site scripting protection",
-                "Content-Security-Policy": "Content security policy",
-                "Strict-Transport-Security": "HTTP Strict Transport Security",
-                "Referrer-Policy": "Controls referrer information",
-                "Permissions-Policy": "Browser feature permissions",
-                "X-Permitted-Cross-Domain-Policies": "Cross-domain policy"
-            }
-            
-            results = {}
-            missing = []
-            
-            for header, description in security_headers.items():
-                if header in headers:
-                    results[header] = {
-                        "value": headers[header],
-                        "present": True,
-                        "description": description
-                    }
-                else:
-                    results[header] = {
-                        "value": "MISSING",
-                        "present": False,
-                        "description": description
-                    }
-                    missing.append(header)
-            
-            results["summary"] = {
-                "total_checked": len(security_headers),
-                "missing_count": len(missing),
-                "present_count": len(security_headers) - len(missing),
-                "score": f"{(len(security_headers) - len(missing))}/{len(security_headers)}",
-                "missing_headers": missing
-            }
-            
-            return results
-            
-        except Exception as e:
-            return {"error": f"Headers check failed: {str(e)}"}
-    
-    def calculate_risk_level(self, vulnerabilities):
-        """Calculate overall risk level based on vulnerabilities"""
-        if not vulnerabilities:
-            return "LOW"
-        
-        critical_count = sum(1 for v in vulnerabilities if v.get("risk") == "CRITICAL")
-        high_count = sum(1 for v in vulnerabilities if v.get("risk") == "HIGH")
-        medium_count = sum(1 for v in vulnerabilities if v.get("risk") == "MEDIUM")
-        low_count = sum(1 for v in vulnerabilities if v.get("risk") == "LOW")
-        
-        if critical_count > 0:
-            return "CRITICAL"
-        elif high_count > 0:
-            return "HIGH"
-        elif medium_count > 0:
-            return "MEDIUM"
-        elif low_count > 0:
-            return "LOW"
-        else:
-            return "INFO"
-    
-    def get_demo_data(self):
-        """Return demo data for testing"""
-        return {
-            "target": {
-                "url": "https://example.com",
-                "domain": "example.com",
-                "ip": "93.184.216.34",
-                "port": 443
-            },
-            "geolocation": {
-                "country": "United States",
-                "region": "Massachusetts",
-                "city": "Cambridge",
-                "isp": "Fastly",
-                "latitude": 42.3626,
-                "longitude": -71.0843
-            },
-            "network_info": {
-                "open_ports": [
-                    {
-                        "port": 80,
-                        "service": "HTTP",
-                        "banner": "nginx/1.18.0",
-                        "status": "open"
-                    },
-                    {
-                        "port": 443,
-                        "service": "HTTPS",
-                        "banner": "nginx/1.18.0",
-                        "status": "open"
-                    }
-                ]
-            },
-            "vulnerabilities": [
-                {
-                    "type": "Missing Security Headers",
-                    "risk": "MEDIUM",
-                    "description": "Missing Content-Security-Policy header"
-                }
-            ]
-        }
+                headers[key] = value[:512]
 
-# Vercel serverless function handler
+        tls_info = {"verified": scheme == "https"}
+        if scheme == "https" and connection.sock:
+            tls_info["version"] = connection.sock.version()
+            certificate = connection.sock.getpeercert()
+            expires = certificate.get("notAfter")
+            if expires:
+                expiry_epoch = ssl.cert_time_to_seconds(expires)
+                expires_at = datetime.fromtimestamp(expiry_epoch, timezone.utc)
+                tls_info["expires_at"] = expires_at.isoformat()
+                tls_info["days_remaining"] = (
+                    expires_at - datetime.now(timezone.utc)
+                ).days
+
+        return {
+            "status_code": response.status,
+            "reason": response.reason,
+            "headers": headers,
+            "set_cookies": set_cookies,
+            "body": body,
+            "truncated": truncated,
+            "tls": tls_info,
+        }
+    except (socket.timeout, TimeoutError, ssl.SSLError, OSError, http.client.HTTPException):
+        raise
+    finally:
+        connection.close()
+
+
+def _add_finding(findings, kind, risk, description, recommendation, evidence=None):
+    item = {
+        "type": kind,
+        "risk": risk,
+        "description": description,
+        "recommendation": recommendation,
+    }
+    if evidence:
+        item["evidence"] = evidence
+    findings.append(item)
+
+
+def analyze_security_posture(scheme, headers, set_cookies, body, tls_info, status_code):
+    """Create conservative findings from response metadata; never infer exploitability."""
+    findings = []
+    header = lambda key: headers.get(key.lower(), "")
+    server = header("server")
+    powered_by = header("x-powered-by")
+    csp = header("content-security-policy")
+    frame_options = header("x-frame-options")
+
+    security_headers = {
+        "Content-Security-Policy": csp or "MISSING",
+        "X-Frame-Options": frame_options or "MISSING",
+        "X-Content-Type-Options": header("x-content-type-options") or "MISSING",
+        "Strict-Transport-Security": (
+            header("strict-transport-security") or "MISSING"
+        ) if scheme == "https" else "NOT APPLICABLE (HTTP)",
+        "Referrer-Policy": header("referrer-policy") or "MISSING",
+        "Permissions-Policy": header("permissions-policy") or "MISSING",
+    }
+
+    if scheme == "https" and not header("strict-transport-security"):
+        _add_finding(
+            findings, "Missing HSTS", "MEDIUM",
+            "The HTTPS response does not advertise Strict-Transport-Security.",
+            "After confirming all subdomains support HTTPS, configure an appropriate HSTS policy.",
+        )
+    if not csp:
+        _add_finding(
+            findings, "Missing Content Security Policy", "MEDIUM",
+            "The response does not include a Content-Security-Policy header.",
+            "Define a restrictive Content Security Policy and test it in report-only mode before enforcement.",
+        )
+    if not frame_options and "frame-ancestors" not in csp.lower():
+        _add_finding(
+            findings, "Missing Clickjacking Protection", "MEDIUM",
+            "Neither X-Frame-Options nor a CSP frame-ancestors directive was detected.",
+            "Set X-Frame-Options or an appropriate Content-Security-Policy frame-ancestors directive.",
+        )
+    if header("x-content-type-options").lower() != "nosniff":
+        _add_finding(
+            findings, "Missing MIME Sniffing Protection", "LOW",
+            "X-Content-Type-Options is absent or is not set to nosniff.",
+            "Set X-Content-Type-Options: nosniff.",
+        )
+    if not header("referrer-policy"):
+        _add_finding(
+            findings, "Missing Referrer Policy", "LOW",
+            "The response does not specify a Referrer-Policy.",
+            "Set a privacy-conscious Referrer-Policy such as strict-origin-when-cross-origin.",
+        )
+    if not header("permissions-policy"):
+        _add_finding(
+            findings, "Missing Permissions Policy", "LOW",
+            "The response does not specify a Permissions-Policy.",
+            "Explicitly disable browser features that the application does not need.",
+        )
+
+    session_name = re.compile(r"(session|sess|auth|token|sid)", re.IGNORECASE)
+    for cookie in set_cookies:
+        parts = [part.strip() for part in cookie.split(";")]
+        cookie_name = parts[0].split("=", 1)[0][:80] if parts else "cookie"
+        flags = {part.split("=", 1)[0].strip().lower() for part in parts[1:]}
+        is_session_cookie = bool(session_name.search(cookie_name))
+        if scheme == "https" and "secure" not in flags:
+            _add_finding(
+                findings, "Cookie Missing Secure Flag",
+                "MEDIUM" if is_session_cookie else "LOW",
+                "A cookie was set without the Secure attribute.",
+                "Add the Secure attribute to cookies served over HTTPS.",
+                evidence={"cookie_name": cookie_name},
+            )
+        if "httponly" not in flags:
+            _add_finding(
+                findings, "Cookie Missing HttpOnly Flag",
+                "MEDIUM" if is_session_cookie else "LOW",
+                "A cookie was set without the HttpOnly attribute.",
+                "Add HttpOnly to cookies that do not need JavaScript access.",
+                evidence={"cookie_name": cookie_name},
+            )
+        if not any(part.lower().startswith("samesite=") for part in parts[1:]):
+            _add_finding(
+                findings, "Cookie Missing SameSite Attribute", "LOW",
+                "A cookie was set without an explicit SameSite attribute.",
+                "Set an appropriate SameSite policy for the application.",
+                evidence={"cookie_name": cookie_name},
+            )
+
+    technologies = set()
+    server_lower = server.lower()
+    powered_lower = powered_by.lower()
+    body_lower = body.lower()
+    for marker, technology in (
+        ("nginx", "nginx"),
+        ("apache", "Apache HTTP Server"),
+        ("microsoft-iis", "Microsoft IIS"),
+        ("cloudflare", "Cloudflare"),
+    ):
+        if marker in server_lower:
+            technologies.add(technology)
+    if "php" in powered_lower:
+        technologies.add("PHP")
+    if "asp.net" in powered_lower:
+        technologies.add("ASP.NET")
+    if "express" in powered_lower:
+        technologies.add("Express")
+    if "wp-content" in body_lower or "wp-includes" in body_lower:
+        technologies.add("WordPress")
+    if "__next" in body_lower:
+        technologies.add("Next.js")
+    if "data-reactroot" in body_lower or "react-dom" in body_lower:
+        technologies.add("React")
+
+    tls = tls_info or {}
+    days_remaining = tls.get("days_remaining")
+    if isinstance(days_remaining, int) and days_remaining < 30:
+        _add_finding(
+            findings, "TLS Certificate Expiring Soon",
+            "HIGH" if days_remaining < 7 else "MEDIUM",
+            f"The verified TLS certificate expires in approximately {max(days_remaining, 0)} days.",
+            "Renew the certificate before expiry and verify automated renewal.",
+            evidence={"days_remaining": days_remaining},
+        )
+
+    if status_code >= 500:
+        _add_finding(
+            findings, "Server Error Response", "INFO",
+            f"The target returned HTTP {status_code}; this is an availability signal, not proof of a security vulnerability.",
+            "Review application and server logs for the corresponding request.",
+        )
+
+    return {
+        "security_headers": security_headers,
+        "vulnerabilities": findings,
+        "technologies": sorted(technologies),
+        "server_info": {
+            "server": server or "Not disclosed",
+            "powered_by": powered_by or "Not disclosed",
+        },
+    }
+
+
+def calculate_risk_level(findings):
+    priorities = {"CRITICAL": 5, "HIGH": 4, "MEDIUM": 3, "LOW": 2, "INFO": 1}
+    if not findings:
+        return "INFO"
+    return max(
+        (finding.get("risk", "INFO") for finding in findings),
+        key=lambda level: priorities.get(level, 0),
+    )
+
+
+def scan_target(raw_target):
+    """Fetch one web page and produce a bounded, non-invasive posture report."""
+    started = time.monotonic()
+    original_url = normalize_target(raw_target)
+    current_url = original_url
+    visited = set()
+    redirects = 0
+
+    for attempt in range(MAX_REDIRECTS + 1):
+        parsed = urlsplit(current_url)
+        visit_key = (parsed.scheme, parsed.netloc, parsed.path)
+        if visit_key in visited:
+            raise ScanExecutionError("The target returned a redirect loop.")
+        visited.add(visit_key)
+
+        addresses = resolve_public_addresses(parsed.hostname)
+        try:
+            response = _request_once(parsed, addresses[0])
+        except ssl.SSLCertVerificationError:
+            raise ScanExecutionError("TLS certificate verification failed.") from None
+        except (socket.timeout, TimeoutError):
+            raise ScanExecutionError("The target timed out.") from None
+        except (ssl.SSLError, OSError, http.client.HTTPException):
+            raise ScanExecutionError("The target could not be reached securely.") from None
+
+        location = response["headers"].get("location")
+        if response["status_code"] in {301, 302, 303, 307, 308} and location:
+            if attempt >= MAX_REDIRECTS:
+                raise ScanExecutionError("The target exceeded the redirect limit.")
+            next_url = normalize_target(urljoin(current_url, location))
+            if parsed.scheme == "https" and urlsplit(next_url).scheme == "http":
+                raise TargetValidationError("HTTPS-to-HTTP downgrade redirects are blocked.")
+            current_url = next_url
+            redirects += 1
+            continue
+        break
+    else:
+        raise ScanExecutionError("The target could not be fetched.")
+
+    final_parsed = urlsplit(current_url)
+    final_ip = addresses[0]
+    body = response["body"].decode("utf-8", errors="replace")
+    analysis = analyze_security_posture(
+        final_parsed.scheme,
+        response["headers"],
+        response["set_cookies"],
+        body,
+        response["tls"],
+        response["status_code"],
+    )
+
+    safe_headers = {}
+    for key in (
+        "server", "x-powered-by", "content-type", "content-length",
+        "cache-control", "strict-transport-security",
+        "content-security-policy", "x-frame-options",
+        "x-content-type-options", "referrer-policy", "permissions-policy",
+    ):
+        if key in response["headers"]:
+            safe_headers[key] = response["headers"][key]
+
+    findings = analysis["vulnerabilities"]
+    if final_parsed.scheme == "http":
+        _add_finding(
+            findings, "Unencrypted HTTP", "MEDIUM",
+            "The final page is served over unencrypted HTTP.",
+            "Serve the application over HTTPS and redirect HTTP requests to HTTPS.",
+        )
+
+    duration_ms = round((time.monotonic() - started) * 1000)
+    network_info = {
+        "domain": final_parsed.hostname,
+        "ip": final_ip,
+        "port": 443 if final_parsed.scheme == "https" else 80,
+        "protocol": final_parsed.scheme,
+        "open_ports": [],
+        "open_ports_count": None,
+        "port_scan_status": "not_performed",
+    }
+
+    return {
+        "scan_id": "scan_" + uuid.uuid4().hex[:12],
+        "target": original_url,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "scan_type": "Non-invasive HTTP security posture assessment",
+        "scan_status": "completed",
+        "vulnerabilities": [
+            {"id": f"finding_{index:02d}", **finding}
+            for index, finding in enumerate(findings, start=1)
+        ],
+        "network_info": network_info,
+        "web_info": {
+            "server": analysis["server_info"]["server"],
+            "server_info": analysis["server_info"],
+            "headers": safe_headers,
+            "security_headers": analysis["security_headers"],
+            "warnings": [],
+            "response_info": {
+                "status_code": response["status_code"],
+                "url": current_url,
+                "redirects": redirects,
+                "content_length": len(response["body"]),
+                "body_truncated": response["truncated"],
+                "duration_ms": duration_ms,
+            },
+            "tls": response["tls"],
+        },
+        "geolocation": {"status": "not_collected"},
+        "technologies": analysis["technologies"],
+        "limitations": [
+            "TCP port enumeration is disabled in the public hosted scanner.",
+            "Exploit-based SQL injection and XSS tests are disabled.",
+            "Directory brute forcing and sensitive-file probing are disabled.",
+            "Only the requested page is fetched; query strings are not sent.",
+            "A clean result is not proof that a system is secure.",
+        ],
+        "summary": {
+            "total_vulnerabilities": len(findings),
+            "risk_level": calculate_risk_level(findings),
+            "open_ports": None,
+            "port_scan_performed": False,
+            "technologies_found": len(analysis["technologies"]),
+            "scan_duration_ms": duration_ms,
+            "status": "success",
+        },
+    }
+
+
+def _rate_limit_key(request_handler):
+    value = (
+        request_handler.headers.get("x-vercel-forwarded-for")
+        or request_handler.headers.get("x-real-ip")
+        or ""
+    ).split(",", 1)[0].strip()
+    if not value:
+        try:
+            value = request_handler.client_address[0]
+        except (AttributeError, IndexError, TypeError):
+            value = "unknown"
+    return value[:80]
+
+
+def _check_rate_limit(key):
+    now = time.monotonic()
+    with _rate_lock:
+        events = _rate_events[key]
+        while events and now - events[0] >= RATE_WINDOW_SECONDS:
+            events.popleft()
+        if len(events) >= RATE_LIMIT_REQUESTS:
+            retry_after = max(1, int(RATE_WINDOW_SECONDS - (now - events[0])))
+            return False, retry_after
+        events.append(now)
+        return True, 0
+
+
+class handler(http.server.BaseHTTPRequestHandler):
+    """Vercel Python function entry point."""
+
+    def _send_json(self, status, payload, extra_headers=None):
+        body = json.dumps(
+            payload, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        origin = self.headers.get("Origin")
+        if origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+        for key, value in (extra_headers or {}).items():
+            self.send_header(key, str(value))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _path(self):
+        return urlsplit(self.path).path.rstrip("/") or "/"
+
+    def do_OPTIONS(self):
+        origin = self.headers.get("Origin")
+        if origin not in ALLOWED_ORIGINS:
+            self._send_json(403, {"error": "Origin is not allowed."})
+            return
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self):
+        path = self._path()
+        if path == "/":
+            self._send_json(200, {
+                "name": "Scanner API",
+                "version": VERSION,
+                "status": "available",
+                "endpoints": {"health": "GET /health", "scan": "POST /api/scan"},
+                "scan_mode": "non-invasive HTTP security posture assessment",
+                "warning": "Scan only systems you own or are explicitly authorized to assess.",
+            })
+        elif path == "/health":
+            self._send_json(200, {
+                "status": "healthy",
+                "service": "Scanner API",
+                "version": VERSION,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+        elif path == "/api/scan":
+            self._send_json(
+                405,
+                {"error": "Method not allowed.", "allowed_method": "POST"},
+                {"Allow": "POST, OPTIONS"},
+            )
+        else:
+            self._send_json(404, {
+                "error": "Endpoint not found.",
+                "available_endpoints": ["/", "/health", "/api/scan"],
+            })
+
+    def do_POST(self):
+        if self._path() != "/api/scan":
+            self._send_json(404, {"error": "Endpoint not found."})
+            return
+
+        origin = self.headers.get("Origin")
+        if origin not in ALLOWED_ORIGINS:
+            self._send_json(403, {
+                "error": "Requests must come from the approved Scanner web application."
+            })
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        try:
+            content_length = int(raw_length or "0")
+        except ValueError:
+            self._send_json(400, {"error": "Invalid Content-Length."})
+            return
+        if content_length <= 0:
+            self._send_json(400, {"error": "A JSON request body is required."})
+            return
+        if content_length > MAX_BODY_BYTES:
+            self._send_json(413, {"error": "Request body is too large."})
+            return
+
+        try:
+            data = json.loads(self.rfile.read(content_length).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._send_json(400, {"error": "Invalid JSON request body."})
+            return
+        if not isinstance(data, dict):
+            self._send_json(400, {"error": "JSON body must be an object."})
+            return
+        if data.get("authorization_confirmed") is not True:
+            self._send_json(403, {
+                "error": "Confirm that you own the target or have explicit permission to assess it."
+            })
+            return
+
+        allowed, retry_after = _check_rate_limit(_rate_limit_key(self))
+        if not allowed:
+            self._send_json(
+                429,
+                {"error": "Scan rate limit reached. Please try again later."},
+                {"Retry-After": retry_after},
+            )
+            return
+
+        try:
+            result = scan_target(data.get("target"))
+            self._send_json(200, result)
+        except TargetValidationError as error:
+            self._send_json(400, {"error": str(error)})
+        except ScanExecutionError as error:
+            self._send_json(502, {"error": str(error)})
+        except Exception:
+            print("[scanner] Unexpected scan failure", flush=True)
+            self._send_json(500, {"error": "An internal scanner error occurred."})
+
+    def _method_not_allowed(self):
+        self._send_json(
+            405,
+            {"error": "Method not allowed.", "allowed_methods": ["GET", "POST", "OPTIONS"]},
+            {"Allow": "GET, POST, OPTIONS"},
+        )
+
+    def do_PUT(self):
+        self._method_not_allowed()
+
+    def do_PATCH(self):
+        self._method_not_allowed()
+
+    def do_DELETE(self):
+        self._method_not_allowed()
+
+
 if __name__ == "__main__":
-    # Test the scanner locally
-    scanner = handler
-    print("Vulnerability Scanner API v3.2")
-    print("Deployed on Vercel as serverless function")
+    print(f"Scanner API {VERSION}; deploy with Vercel's Python runtime.")
