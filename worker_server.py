@@ -59,6 +59,50 @@ def write_job(job: dict):
     os.replace(tmp, JOB_DIR / f"{job['job_id']}.json")
 
 
+def recover_interrupted_jobs():
+    """Mark jobs interrupted by a Sandbox stop as failed instead of leaving them running forever."""
+    for path in JOB_DIR.glob("*.json"):
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(job, dict) or job.get("status") not in {"queued", "running"}:
+            continue
+        job_id = job.get("job_id", "")
+        if not re.fullmatch(r"[a-f0-9-]{36}", job_id):
+            continue
+        job.update({
+            "status": "failed",
+            "completed_at": utc_now(),
+            "error": "Sandbox session stopped before this assessment completed. Submit the assessment again.",
+        })
+        write_job(job)
+
+
+def prune_job_history():
+    """Remove the oldest completed/failed records when the bounded history is full."""
+    files = list(JOB_DIR.glob("*.json"))
+    if len(files) < MAX_JOBS:
+        return
+    terminal = []
+    for path in files:
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(job, dict) and job.get("status") in {"completed", "failed"}:
+            terminal.append((str(job.get("created_at", "")), path))
+    terminal.sort(key=lambda item: item[0])
+    while len(files) >= MAX_JOBS and terminal:
+        _, path = terminal.pop(0)
+        try:
+            path.unlink()
+            files.remove(path)
+        except FileNotFoundError:
+            if path in files:
+                files.remove(path)
+
+
 def safe_extract_archive(encoded: str, destination: Path):
     if not isinstance(encoded, str) or len(encoded) > (MAX_ARCHIVE * 4 // 3 + 16):
         raise ValueError("Source archive is too large.")
@@ -257,8 +301,10 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(429, {"error": "Worker capacity reached. Retry shortly."})
                     return
                 if len(list(JOB_DIR.glob("*.json"))) >= MAX_JOBS:
-                    self.send_json(429, {"error": "Job history capacity reached; archive old jobs."})
-                    return
+                    prune_job_history()
+                    if len(list(JOB_DIR.glob("*.json"))) >= MAX_JOBS:
+                        self.send_json(429, {"error": "Job history is full because no completed or failed records can be pruned."})
+                        return
                 job_id = str(uuid.uuid4())
                 job = {"job_id": job_id, "status": "queued", "created_at": utc_now()}
                 write_job(job)
@@ -278,5 +324,6 @@ if __name__ == "__main__":
     if not TOKEN or len(TOKEN) < 32:
         raise SystemExit("Set SCANNER_WORKER_TOKEN to a random secret of at least 32 characters.")
     JOB_DIR.mkdir(parents=True, exist_ok=True)
+    recover_interrupted_jobs()
     print(f"Scanner worker listening on {HOST}:{PORT}", flush=True)
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
