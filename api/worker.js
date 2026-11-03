@@ -205,15 +205,18 @@ async function proxyToWorker(req, res, method, path, payload) {
 
 export default async function handler(req, res) {
   const url = new URL(req.url || "/api/worker", "https://" + (req.headers.host || "localhost"));
+  if (req.headers.origin && originAllowed(req)) {
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+    res.setHeader("Vary", "Origin");
+  }
+
   if (req.method === "OPTIONS") {
     if (!originAllowed(req)) return sendJson(res, 403, { error: "Origin is not allowed." });
-    return sendJson(res, 204, {}, {
-      "Access-Control-Allow-Origin": req.headers.origin,
-      "Vary": "Origin",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "600"
-    });
+    res.statusCode = 204;
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Max-Age", "600");
+    return res.end();
   }
 
   if (req.method === "GET") {
