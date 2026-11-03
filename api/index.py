@@ -64,7 +64,10 @@ def normalize_target(raw_target):
     if any(ord(char) < 32 or ord(char) == 127 for char in value):
         raise TargetValidationError("Target URL contains invalid control characters.")
 
-    if not re.match(r"^https?://", value, re.IGNORECASE):
+    explicit_scheme = re.match(r"^([a-z][a-z0-9+.-]*)://", value, re.IGNORECASE)
+    if explicit_scheme and explicit_scheme.group(1).lower() not in {"http", "https"}:
+        raise TargetValidationError("Only HTTP and HTTPS targets are supported.")
+    if not explicit_scheme:
         value = "https://" + value
 
     try:
