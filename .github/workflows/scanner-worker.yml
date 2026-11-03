@@ -13,6 +13,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Compile worker
-        run: python -m py_compile scanner_engine.py
+        run: python -m py_compile scanner_engine.py worker_server.py api/index.py
       - name: Run engine tests
         run: python -m unittest discover -s tests -v
