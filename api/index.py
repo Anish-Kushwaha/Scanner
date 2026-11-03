@@ -577,6 +577,7 @@ def _rate_limit_key(request_handler):
     value = (
         request_handler.headers.get("x-vercel-forwarded-for")
         or request_handler.headers.get("x-real-ip")
+        or request_handler.headers.get("x-forwarded-for")
         or ""
     ).split(",", 1)[0].strip()
     if not value:
