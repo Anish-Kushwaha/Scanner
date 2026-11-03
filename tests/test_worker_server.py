@@ -116,5 +116,18 @@ class JobLifecycleTests(unittest.TestCase):
                 self.assertIsNotNone(worker_server.read_job(ids[2]))
 
 
+class WorkerAuthTests(unittest.TestCase):
+    def test_authorization_reads_rotated_token_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            token_file = Path(temp) / ".worker-token"
+            token_file.write_text("new-token-value", encoding="utf-8")
+            handler = object.__new__(worker_server.Handler)
+            handler.headers = {"Authorization": "Bearer new-token-value"}
+            with patch.object(worker_server, "TOKEN", "old-token-value"), patch.object(worker_server, "TOKEN_FILE", token_file):
+                self.assertTrue(handler.authorized())
+                handler.headers = {"Authorization": "Bearer old-token-value"}
+                self.assertFalse(handler.authorized())
+
+
 if __name__ == "__main__":
     unittest.main()
