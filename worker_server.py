@@ -153,8 +153,25 @@ def execute_job(job_id: str, request: dict):
             results["local_assessment"] = assess_local_path(str(source), findings)
     results["findings"] = [f.__dict__ for f in findings]
     results["summary"] = score_findings(findings)
+    results["scan_id"] = job_id
+    results["schema_version"] = "1.1"
     results["authorization"] = {"attested": True, "allowlist_enforced": True}
     results["generated_at"] = utc_now()
+    results["capabilities"] = {
+        "web_crawling": bool(results.get("web", {}).get("pages_checked")),
+        "network_discovery": results.get("network", {}).get("status") == "completed",
+        "tcp_port_scan": results.get("network", {}).get("status") == "completed",
+        "service_version_detection": results.get("network", {}).get("status") == "completed",
+        "tls_assessment": bool(results.get("web", {}).get("tls")),
+        "zap_passive_baseline": results.get("zap", {}).get("status") == "completed",
+        "local_config_and_secret_checks": results.get("local_assessment", {}).get("status") == "completed",
+        "trivy": results.get("local_assessment", {}).get("trivy", {}).get("status", "not_requested"),
+        "os_fingerprinting_requested": bool(request.get("os_detect")),
+        "udp_scan_requested": bool(request.get("udp")),
+        "active_exploitation": False,
+        "credential_bruteforce": False,
+        "destructive_tests": False,
+    }
     results["limitations"] = [
         "No exploit execution, credential attacks, persistence, evasion, destructive tests, or denial-of-service checks.",
         "Service version fingerprints are not proof of CVE exploitability.",
