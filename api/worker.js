@@ -77,6 +77,22 @@ async function readBody(req) {
   return Buffer.concat(chunks);
 }
 
+async function workerHealth(base, expectedSha) {
+  try {
+    const response = await fetch(base + "/health", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(2500)
+    });
+    if (!response.ok) return false;
+    const health = await response.json();
+    return health?.status === "healthy"
+      && health?.nmap_privileges === true
+      && (!expectedSha || health?.source_sha === expectedSha);
+  } catch {
+    return false;
+  }
+}
+
 async function getWorkerBase() {
   const token = process.env.SCANNER_WORKER_TOKEN || "";
   const allowedTargets = process.env.SCANNER_ALLOWED_TARGETS || "";
@@ -86,14 +102,9 @@ async function getWorkerBase() {
     throw error;
   }
 
+  const expectedSha = process.env.VERCEL_GIT_COMMIT_SHA || "";
   if (cachedWorkerBase && Date.now() - cachedAt < 15_000) {
-    try {
-      const cachedHealth = await fetch(cachedWorkerBase + "/health", {
-        cache: "no-store",
-        signal: AbortSignal.timeout(2000)
-      });
-      if (cachedHealth.ok) return cachedWorkerBase;
-    } catch {}
+    if (await workerHealth(cachedWorkerBase, expectedSha)) return cachedWorkerBase;
     cachedWorkerBase = "";
     cachedAt = 0;
   }
@@ -122,62 +133,43 @@ async function getWorkerBase() {
       }
     });
 
-    const bootstrap = [
-      "import json, os, pathlib, subprocess, sys, time, urllib.error, urllib.request",
-      "root = '/vercel/Scanner'",
-      "if not os.path.isfile(root + '/worker_server.py'): raise SystemExit('Scanner worker source is missing')",
-      "job_dir = os.environ.get('SCANNER_JOB_DIR', root + '/.scanner-jobs')",
-      "pathlib.Path(job_dir).mkdir(parents=True, exist_ok=True)",
-      "token = os.environ.get('SCANNER_WORKER_TOKEN', '')",
-      "if len(token) < 32: raise SystemExit('Scanner worker token is missing or too short')",
-      "token_file = pathlib.Path(job_dir) / '.worker-token'",
-      "token_file.write_text(token, encoding='utf-8')",
-      "os.chmod(token_file, 0o600)",
-      "def healthy():",
-      "    try:",
-      "        with urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=1) as response:",
-      "            health = json.loads(response.read().decode('utf-8'))",
-      "            if response.status != 200 or not health.get('nmap_privileges'): return False",
-      "        request = urllib.request.Request('http://127.0.0.1:8080/v1/jobs/00000000-0000-0000-0000-000000000000', headers={'Authorization': 'Bearer ' + token})",
-      "        try:",
-      "            urllib.request.urlopen(request, timeout=1)",
-      "        except urllib.error.HTTPError as error:",
-      "            return error.code == 404",
-      "        return False",
-      "    except Exception:",
-      "        return False",
-      "if not healthy():",
-      "    subprocess.run(['sudo', '-n', 'pkill', '-f', '[w]orker_server.py'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)",
-      "    time.sleep(0.25)",
-      "    log = open(root + '/worker.log', 'ab', buffering=0)",
-      "    subprocess.Popen(['sudo', '-n', '-E', sys.executable, 'worker_server.py'], cwd=root, env=os.environ.copy(), stdout=log, stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)",
-      "    log.close()",
-      "for _ in range(40):",
-      "    if healthy(): sys.exit(0)",
-      "    time.sleep(0.25)",
-      "print('Scanner worker did not become healthy', file=sys.stderr)",
-      "sys.exit(1)"
-    ].join("\n");
+    const sourceSha = process.env.VERCEL_GIT_COMMIT_SHA || "";
+    if (!/^[a-f0-9]{40}$/.test(sourceSha)) {
+      throw new Error("The deployment Git commit SHA is unavailable; cannot pin the worker source safely.");
+    }
+
+    // Keep the persistent Sandbox's code in lockstep with this exact deployment.
+    const sync = await sandbox.runCommand({
+      cmd: "bash",
+      args: ["-lc", "git -C /vercel/Scanner fetch --depth=1 origin " + sourceSha + " && git -C /vercel/Scanner reset --hard " + sourceSha],
+      timeout: 120000
+    });
+    if (sync.exitCode !== 0) {
+      throw new Error("Unable to update the persistent worker source to this deployment commit.");
+    }
 
     const boot = await sandbox.runCommand({
       cmd: "python3",
-      args: ["-c", bootstrap],
+      args: ["scripts/bootstrap_worker.py"],
+      cwd: "/vercel/Scanner",
       env: {
         SCANNER_WORKER_HOST: "0.0.0.0",
         SCANNER_WORKER_PORT: "8080",
         SCANNER_WORKER_TOKEN: token,
         SCANNER_ALLOWED_TARGETS: allowedTargets,
-        SCANNER_JOB_DIR: "/vercel/Scanner/.scanner-jobs"
-      }
+        SCANNER_JOB_DIR: "/vercel/Scanner/.scanner-jobs",
+        SCANNER_SOURCE_SHA: sourceSha
+      },
+      timeout: 600000
     });
-    if (boot.exitCode !== 0) throw new Error("The Scanner worker could not be started in its Vercel Sandbox.");
+    if (boot.exitCode !== 0) {
+      throw new Error("The Scanner worker bootstrap failed its serialized startup and authenticated health checks.");
+    }
 
     const base = sandbox.domain(8080);
-    const health = await fetch(base + "/health", {
-      cache: "no-store",
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!health.ok) throw new Error("The resumed Scanner worker did not pass its health check.");
+    if (!(await workerHealth(base, sourceSha))) {
+      throw new Error("The resumed Scanner worker failed health, root-privilege, or source-version verification.");
+    }
 
     cachedWorkerBase = base;
     cachedAt = Date.now();
@@ -220,9 +212,10 @@ async function proxyToWorker(req, res, method, path, payload) {
     const status = code === "worker_not_configured" ? 503 : 502;
     return sendJson(res, status, {
       error: code === "worker_not_configured"
-        ? "The advanced scanning worker is not configured for this preview deployment."
+        ? "The advanced scanning worker is not configured for this deployment."
         : "The Vercel Sandbox worker could not be resumed or reached.",
-      code
+      code,
+      detail: String(error?.message || "Unknown worker startup error.").slice(0, 240)
     });
   }
 }
