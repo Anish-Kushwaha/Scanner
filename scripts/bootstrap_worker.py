@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import hashlib
 import os
 import pathlib
 import signal
@@ -18,6 +19,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 JOB_DIR = pathlib.Path(os.environ.get("SCANNER_JOB_DIR", str(ROOT / ".scanner-jobs")))
 TOKEN = os.environ.get("SCANNER_WORKER_TOKEN", "")
 SOURCE_SHA = os.environ.get("SCANNER_SOURCE_SHA", "")
+ALLOWED_TARGETS = os.environ.get("SCANNER_ALLOWED_TARGETS", "")
+SCOPE_SHA = hashlib.sha256(ALLOWED_TARGETS.encode()).hexdigest()
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("SCANNER_WORKER_PORT", "8080"))
 PID_FILE = JOB_DIR / ".worker.pid"
@@ -34,6 +37,8 @@ def worker_healthy() -> bool:
             if data.get("nmap_privileges") is not True:
                 return False
             if SOURCE_SHA and data.get("source_sha") != SOURCE_SHA:
+                return False
+            if data.get("scope_sha") != SCOPE_SHA:
                 return False
         request = urllib.request.Request(
             f"http://{HOST}:{PORT}/v1/jobs/00000000-0000-0000-0000-000000000000",
@@ -159,6 +164,7 @@ def main() -> int:
             "SCANNER_WORKER_TOKEN_FILE": str(TOKEN_FILE),
             "SCANNER_JOB_DIR": str(JOB_DIR),
             "SCANNER_SOURCE_SHA": SOURCE_SHA,
+            "SCANNER_ALLOWED_TARGETS": ALLOWED_TARGETS,
         })
         with LOG_FILE.open("ab", buffering=0) as log:
             process = subprocess.Popen(
