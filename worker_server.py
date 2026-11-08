@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import hashlib
 import os
 import re
 import shutil
@@ -227,6 +228,7 @@ class Handler(BaseHTTPRequestHandler):
                 "service": "Scanner private worker",
                 "nmap_privileges": bool(hasattr(os, "geteuid") and os.geteuid() == 0),
                 "source_sha": SOURCE_SHA,
+                "scope_sha": hashlib.sha256(os.environ.get("SCANNER_ALLOWED_TARGETS", "").encode()).hexdigest(),
             })
             return
         if not self.authorized():
