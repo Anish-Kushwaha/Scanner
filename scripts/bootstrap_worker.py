@@ -110,6 +110,12 @@ def shutil_which(name: str) -> str | None:
 
 
 def main() -> int:
+    # The worker process runs as root for SYN/OS/UDP Nmap capabilities. Elevate
+    # the supervisor too so it can safely stop only stale worker PIDs it owns.
+    if hasattr(os, "geteuid") and os.geteuid() != 0:
+        command = ["sudo", "-n", "-E", sys.executable, str(pathlib.Path(__file__).resolve())]
+        os.execvpe("sudo", command, os.environ.copy())
+
     if len(TOKEN) < 32:
         raise SystemExit("SCANNER_WORKER_TOKEN is missing or too short.")
     if SOURCE_SHA and (len(SOURCE_SHA) != 40 or any(c not in "0123456789abcdef" for c in SOURCE_SHA)):
