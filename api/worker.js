@@ -141,8 +141,8 @@ async function getWorkerBase() {
     // Keep the persistent Sandbox's code in lockstep with this exact deployment.
     const sync = await sandbox.runCommand({
       cmd: "bash",
-      args: ["-lc", "git -C /vercel/Scanner fetch --depth=1 origin " + sourceSha + " && git -C /vercel/Scanner reset --hard " + sourceSha],
-      timeout: 120000
+      args: ["-lc", "set -e; cd /vercel/Scanner; if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then git init -q; fi; git remote get-url origin >/dev/null 2>&1 || git remote add origin https://github.com/Anish-Kushwaha/Scanner.git; git fetch --depth=1 origin " + sourceSha + " && git reset --hard " + sourceSha],
+      timeout: 180000
     });
     if (sync.exitCode !== 0) {
       throw new Error("Unable to update the persistent worker source to this deployment commit.");
