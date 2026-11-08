@@ -28,6 +28,7 @@ from scanner_engine import (
 HOST = os.environ.get("SCANNER_WORKER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("SCANNER_WORKER_PORT", "8787"))
 TOKEN = os.environ.get("SCANNER_WORKER_TOKEN", "")
+SOURCE_SHA = os.environ.get("SCANNER_SOURCE_SHA", "")
 JOB_DIR = Path(os.environ.get("SCANNER_JOB_DIR", "/var/lib/scanner/jobs"))
 TOKEN_FILE = Path(os.environ.get("SCANNER_WORKER_TOKEN_FILE", str(JOB_DIR / ".worker-token")))
 MAX_REQUEST = 8 * 1024 * 1024
@@ -225,6 +226,7 @@ class Handler(BaseHTTPRequestHandler):
                 "status": "healthy",
                 "service": "Scanner private worker",
                 "nmap_privileges": bool(hasattr(os, "geteuid") and os.geteuid() == 0),
+                "source_sha": SOURCE_SHA,
             })
             return
         if not self.authorized():
@@ -283,10 +285,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(405, {"error": "Method not allowed."})
 
 
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 if __name__ == "__main__":
     if not TOKEN or len(TOKEN) < 32:
         raise SystemExit("Set SCANNER_WORKER_TOKEN to a random secret of at least 32 characters.")
     JOB_DIR.mkdir(parents=True, exist_ok=True)
     recover_interrupted_jobs()
-    print(f"Scanner worker listening on {HOST}:{PORT}", flush=True)
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    print(f"Scanner worker listening on {HOST}:{PORT} (source {SOURCE_SHA or 'unknown'})", flush=True)
+    ReusableThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
