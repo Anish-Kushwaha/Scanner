@@ -21,11 +21,20 @@ Deno.serve(async(req:Request)=>{
   const jwtClaims=JSON.parse(atob(jwtPart.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(jwtPart.length/4)*4,"=")));
   if(jwtClaims.aal!=="aal2")throw fail("Multi-factor authentication is required for platform administration.",403,"mfa_required");
   const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
-  const {data:isAdmin,error:adminCheckError}=await admin.rpc("is_platform_admin_user",{check_user_id:user.id});
-  if(adminCheckError||isAdmin!==true)throw fail("Only an ANISH ENTERPRISES platform administrator can perform this action.",403,"platform_admin_required");
   const body=await req.json();
   const action=String(body.action||"");
 
+  if(action==="bootstrap_first_admin"){
+   if(String(user.email||"").toLowerCase()!=="anishkushwahag28@gmail.com")
+    throw fail("Only the verified ANISH ENTERPRISES owner email can bootstrap the first administrator.",403,"bootstrap_email_mismatch");
+   const {data:bootstrapped,error:bootstrapError}=await admin.rpc("bootstrap_first_platform_admin",{check_user_id:user.id});
+   if(bootstrapError||bootstrapped!==true)
+    throw fail(bootstrapError?.message||"First administrator bootstrap was not completed.",409,"bootstrap_failed");
+   return reply(200,{bootstrapped:true,role:"supreme_admin",email:"anishkushwahag28@gmail.com"});
+  }
+
+  const {data:isAdmin,error:adminCheckError}=await admin.rpc("is_platform_admin_user",{check_user_id:user.id});
+  if(adminCheckError||isAdmin!==true)throw fail("Only an ANISH ENTERPRISES platform administrator can perform this action.",403,"platform_admin_required");
   if(action==="dashboard"){
    const [{data:profiles},{data:organizations},{data:memberships},{data:engagements},{data:assets},{data:evidence},{data:userList}]=await Promise.all([
     admin.from("user_profiles").select("user_id,display_name,account_status,created_at").in("account_status",["pending","approved","suspended"]).order("created_at",{ascending:false}).limit(200),
