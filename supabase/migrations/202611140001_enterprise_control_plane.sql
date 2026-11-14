@@ -360,6 +360,7 @@ begin
   where pa.user_id = (select auth.uid()) and pp.status = 'active';
 
   select coalesce(jsonb_agg(jsonb_build_object(
+    'id', m.id,
     'organization_id', o.id,
     'organization_name', o.name,
     'organization_slug', o.slug,
