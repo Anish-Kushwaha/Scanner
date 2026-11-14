@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080d18"><title>Enterprise Workspace — ANISH ENTERPRISES SCANNER</title>
+<style>
+:root{color-scheme:dark;--bg:#080d18;--panel:#101827;--panel2:#142136;--line:#25364d;--text:#edf4ff;--muted:#91a2bb;--cyan:#49d7e8;--cyan2:#20a8c1;--green:#49d7a2;--amber:#f4bd65;--red:#ff7185}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -15%,#16364b 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.55 system-ui,-apple-system,sans-serif;min-height:100vh}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.app{max-width:1450px;margin:auto;padding:25px clamp(15px,3vw,40px) 55px}.top{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-bottom:25px}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#67e8ef,#188db8);display:grid;place-items:center;color:#06131d;font-size:20px;font-weight:900}.brand b{letter-spacing:.15em}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.16em}.topright{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #285548;background:#10251f;color:#91e8c7;border-radius:99px;padding:7px 11px;font-size:11px;font-weight:800}.btn{border:1px solid var(--line);background:#111e30;color:var(--text);border-radius:10px;padding:9px 13px;font-size:12px;font-weight:750}.btn:hover{border-color:var(--cyan)}.btn.primary{background:linear-gradient(135deg,#5ce3ec,#1da8c1);color:#07141e;border:0}.btn:disabled{opacity:.5;cursor:not-allowed}.hero{margin:8px 0 20px}.kicker{color:var(--cyan);font-size:10px;font-weight:850;letter-spacing:.2em;text-transform:uppercase}.hero h1{font-size:clamp(25px,4vw,38px);letter-spacing:-.05em;margin:6px 0}.sub{color:var(--muted);margin:0;font-size:13px}.grid{display:grid;gap:15px}.cols{grid-template-columns:minmax(0,1fr) minmax(280px,.48fr)}.card{background:linear-gradient(145deg,#121f32,#0e1726);border:1px solid var(--line);border-radius:17px;box-shadow:0 20px 55px #0005}.pad{padding:20px}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.head h2,.head h3{margin:0;font-size:16px}.head p{margin:4px 0 0;color:var(--muted);font-size:12px}.field{display:grid;gap:6px;margin:11px 0}.field label{font-size:11px;color:#aab9cd;font-weight:750}.field input,.field select,.field textarea{width:100%;min-height:42px;border-radius:9px;border:1px solid #34465f;background:#091423;color:var(--text);padding:9px 11px;outline:none}.field textarea{min-height:75px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #49d7e81b}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.muted{color:var(--muted)}.notice{padding:12px 14px;border:1px solid #5d4b2d;background:#231d14;color:#f0cd8e;border-radius:10px;font-size:12px;margin:12px 0}.notice.good{border-color:#285a4b;background:#11251e;color:#9be8c9}.notice.bad{border-color:#6b3440;background:#2a1821;color:#ffb1bd}.org{margin:17px 0;padding:18px;border:1px solid #2a4058;border-radius:15px;background:#0d1828}.orghead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.orghead h2{font-size:19px;margin:0}.badge{font-size:9px;letter-spacing:.1em;font-weight:900;border:1px solid #285c68;background:#102b37;color:#91edf4;padding:5px 8px;border-radius:7px}.project{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:#0b1524;padding:15px}.project h3{margin:0;font-size:14px}.items{display:grid;gap:7px;margin:10px 0}.item{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #26374f;background:#101d30;padding:10px 12px;border-radius:9px;flex-wrap:wrap}.item strong{font-size:12px}.item small{display:block;color:var(--muted);font-size:10px;overflow-wrap:anywhere}.state{font-size:9px;font-weight:900;letter-spacing:.1em}.state.good{color:var(--green)}.state.pending{color:var(--amber)}.formbox{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}.formbox summary{font-weight:800;font-size:12px;color:#a8dce6;cursor:pointer}.checks{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:8px 0}.checks label{display:flex;align-items:center;gap:6px}.checks input{accent-color:var(--cyan)}.empty{border:1px dashed #34465f;padding:22px;border-radius:12px;color:var(--muted);text-align:center;font-size:12px}.rightcol{display:grid;gap:15px;align-content:start}.stat{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:10px 0;font-size:12px}.stat:last-child{border:0}.token{padding:10px;border:1px dashed #438391;background:#0b2029;color:#9eebf3;border-radius:9px;overflow-wrap:anywhere;font:11px ui-monospace,monospace}.footer{margin-top:30px;color:#657690;font-size:10px;text-align:center}.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#14283c;border:1px solid #31536b;border-radius:10px;padding:11px 15px;color:#e7faff;display:none;max-width:90vw;z-index:5}
+@media(max-width:850px){.cols{grid-template-columns:1fr}}@media(max-width:560px){.row{grid-template-columns:1fr}.pad{padding:15px}}
+</style>
+</head>
+<body><main class="app">
+<header class="top"><div class="brand"><div class="mark">A</div><div><b>ANISH ENTERPRISES</b><small>SCANNER · CUSTOMER WORKSPACE</small></div></div><div class="topright"><span class="pill" id="identityState">Checking account…</span><button class="btn" id="adminLink">Administration</button><button class="btn" id="logout">Sign out</button></div></header>
+<section class="hero"><div class="kicker">Enterprise workspace</div><h1 id="welcome">Your security workspace</h1><p class="sub">Organizations, projects, verified assets and approved assessment engagements.</p></section>
+<div id="message" class="notice" style="display:none"></div>
+<div class="grid cols">
+<section class="card pad"><div class="head"><div><h2>Your organizations</h2><p>Each customer organization has isolated projects and assessment history.</p></div><span class="badge">TENANT ISOLATED</span></div><div id="organizations"><div class="empty">Loading your approved organization memberships…</div></div>
+<details class="formbox" open><summary>Request a new organization workspace</summary><form id="orgForm"><div class="row"><div class="field"><label>Organization / startup name</label><input id="orgName" maxlength="120" required placeholder="Example: Acme Technologies"></div><div class="field"><label>Preferred workspace slug</label><input id="orgSlug" maxlength="48" required placeholder="acme-technologies" pattern="[a-z0-9-]+"></div></div><div class="field"><label>Business email domain / description</label><textarea id="orgDescription" maxlength="800" placeholder="Describe the organization and its software products."></textarea></div><button class="btn primary">Submit organization for verification →</button></form><p class="muted" style="font-size:10px">ANISH ENTERPRISES must verify the organization and activate its owner membership before projects can be created.</p></details>
+</section>
+<aside class="rightcol">
+ <section class="card pad"><h3 style="margin:0 0 10px">Platform access</h3><div class="stat"><span class="muted">Account status</span><strong class="state good">APPROVED</strong></div><div class="stat"><span class="muted">MFA</span><strong id="mfaStatus">Verified session</strong></div><div class="stat"><span class="muted">Assessment authority</span><strong>Engagement-based</strong></div></section>
+ <section class="card pad"><h3 style="margin:0 0 8px">How target authorization works</h3><p class="sub">Add a domain to a project, prove control using a DNS TXT challenge, submit an engagement, then wait for ANISH ENTERPRISES approval. Static global target lists are not used for customer assets.</p></section>
+ <section class="card pad"><h3 style="margin:0 0 8px">Security boundaries</h3><p class="sub">Private and internal networks require a dedicated customer-connected scanner agent. Public workers reject loopback, link-local, private and metadata-service addresses. Approved users still need target-specific authorization.</p></section>
+</aside>
+</div>
+<footer class="footer">SCANNER · Official security assessment service by ANISH ENTERPRISES · ⚚Ⓐ⚚</footer>
+</main><div class="toast" id="toast"></div>
+<script src="/supabase-config.js"></script><script src="/auth.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let session=null,profile=null,workspace=null;
+function notify(message,type="good"){const m=$("message");m.className="notice "+(type==="bad"?"bad":type==="good"?"good":"");m.textContent=message;m.style.display="block"}
+function toast(message){$("toast").textContent=message;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",3500)}
+function node(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=String(text);return e}
+function stateLabel(value){const e=node("span","state "+(["verified","approved","active","completed"].includes(value)?"good":"pending"),String(value||"pending").replace(/_/g," ").toUpperCase());return e}
+function slugify(v){return v.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,48)}
+$("orgName").addEventListener("input",()=>{if(!$("orgSlug").dataset.edited)$("orgSlug").value=slugify($("orgName").value)});
+$("orgSlug").addEventListener("input",()=>{$("orgSlug").dataset.edited="1";$("orgSlug").value=slugify($("orgSlug").value)});
+async function apiRest(table,method,body,query){return ScannerAuth.rest(table,method,body,query)}
+async function loadWorkspace(){
+ session=await ScannerAuth.getSession();if(!session){location.replace("/login.html");return}
+ const user=await ScannerAuth.user();if(!user){location.replace("/login.html");return}
+ $("welcome").textContent="Welcome, "+(user.user_metadata?.name||user.email||"Scanner user");
+ $("identityState").textContent=user.email||"Approved account";
+ const data=await ScannerAuth.edge("workspace-data",{});
+ workspace=data;
+ renderOrganizations();
+}
+function renderOrganizations(){
+ const wrap=$("organizations");wrap.replaceChildren();
+ const orgs=workspace?.organizations||[];
+ if(!orgs.length){wrap.append(node("div","empty","No verified organization memberships yet. Submit an organization request below or wait for ANISH ENTERPRISES to approve your invitation."));return}
+ orgs.forEach(org=>{
+  const block=node("article","org"),head=node("div","orghead"),left=node("div");
+  left.append(node("h2","",org.legal_name),node("small","muted","/"+org.slug+" · Your role: "+org.role));
+  head.append(left,stateLabel(org.status));block.append(head);
+  const projects=org.projects||[];
+  if(!projects.length)block.append(node("div","empty","No projects yet. Create your first software project below."));
+  projects.forEach(project=>block.append(renderProject(org,project)));
+  const details=node("details","formbox"),summary=node("summary","","Create project");
+  details.append(summary);
+  const form=node("form");form.innerHTML='<div class="row"><div class="field"><label>Project name</label><input name="name" maxlength="120" required placeholder="Main web application"></div><div class="field"><label>Description</label><input name="description" maxlength="400" placeholder="Production application / API"></div></div><button class="btn primary">Create project →</button>';
+  form.onsubmit=async e=>{e.preventDefault();const b=form.querySelector("button");b.disabled=true;try{const fd=new FormData(form);await apiRest("projects","POST",{organization_id:org.id,name:fd.get("name"),description:fd.get("description"),created_by:session.user?.id||workspace.user.id});await reload();toast("Project created.")}catch(err){notify(err.message,"bad")}finally{b.disabled=false}};
+  details.append(form);block.append(details);wrap.append(block);
+ });
+}
+function renderProject(org,project){
+ const box=node("section","project"),head=node("div","head"),left=node("div");
+ left.append(node("h3","",project.name),node("p","muted",project.description||"Project security workspace"));
+ head.append(left,node("span","badge","PROJECT"));box.append(head);
+ const assets=project.assets||[],engagements=project.engagements||[];
+ box.append(node("strong","","Verified assets"));
+ if(!assets.length)box.append(node("div","empty","No verified domains. Add a domain and complete DNS verification."));
+ const assetList=node("div","items");
+ assets.forEach(asset=>{
+  const item=node("div","item"),a=node("div");
+  a.append(node("strong","",asset.canonical_target),node("small","",asset.kind+" · "+(asset.verification_method||"verified")));
+  item.append(a,stateLabel(asset.verification_status));assetList.append(item);
+ });
+ box.append(assetList);
+ const add=node("details","formbox"),addSummary=node("summary","","Add a domain and verify ownership");
+ const addForm=node("form");addForm.innerHTML='<div class="field"><label>Domain name</label><input name="domain" required placeholder="app.example.com"></div><button class="btn">Create DNS verification challenge →</button><div class="verificationResult"></div>';
+ addForm.onsubmit=async e=>{e.preventDefault();const b=addForm.querySelector("button"),result=addForm.querySelector(".verificationResult");b.disabled=true;result.replaceChildren();try{
+  const fd=new FormData(addForm);const data=await ScannerAuth.edge("asset-verification",{action:"create_domain_challenge",organization_id:org.id,project_id:project.id,domain:fd.get("domain")});
+  const panel=node("div","notice good","Add this DNS TXT record before verifying ownership.");panel.append(node("small","","Record name: "+data.record_name));panel.append(node("div","token",data.record_value));
+  const verify=node("button","btn primary","Verify domain ownership");verify.type="button";verify.onclick=async()=>{verify.disabled=true;try{await ScannerAuth.edge("asset-verification",{action:"verify_domain",organization_id:org.id,project_id:project.id,asset_id:data.asset_id});await reload();toast("Domain verified.")}catch(err){notify(err.message,"bad");verify.disabled=false}};
+  panel.append(verify);result.append(panel);notify(data.instructions||"DNS challenge created.","good");
+ }catch(err){notify(err.message,"bad")}finally{b.disabled=false}};
+ add.append(addSummary,addForm);box.append(add);
+ box.append(node("strong","","Engagements"));
+ const engList=node("div","items");
+ if(!engagements.length)engList.append(node("div","empty","No approved engagements yet."));
+ engagements.forEach(eng=>{
+  const item=node("div","item"),left=node("div");
+  left.append(node("strong","",eng.title),node("small","",eng.starts_at?"Starts "+new Date(eng.starts_at).toLocaleString():"No start date"));
+  item.append(left,stateLabel(eng.status));
+  if(["approved","active"].includes(eng.status)&&(eng.targets||[]).length){
+   const target=eng.targets[0],launch=node("a","btn primary","Open assessment workspace →");
+   launch.href="/vulnerabilities.html?organization_id="+encodeURIComponent(org.id)+"&project_id="+encodeURIComponent(project.id)+"&engagement_id="+encodeURIComponent(eng.id)+"&target_id="+encodeURIComponent(target.id);
+   launch.style.textDecoration="none";item.append(launch);
+  }
+  engList.append(item);
+ });
+ box.append(engList);
+ const engagementFormDetails=node("details","formbox"),engSummary=node("summary","","Request a new assessment engagement");
+ const engForm=node("form");engForm.innerHTML='<div class="field"><label>Engagement title</label><input name="title" required maxlength="120" placeholder="Q4 application security review"></div><div class="field"><label>Purpose and approved scope notes</label><textarea name="purpose" maxlength="900" placeholder="What is being tested, expected changes, maintenance window, contact details…"></textarea></div><div class="field"><label>Verified assets</label><div class="checks assetChoices"></div></div><div class="row"><div class="field"><label>Profile</label><select name="profile"><option value="passive">Passive</option><option value="standard">Standard</option><option value="advanced">Advanced (requires explicit admin approval)</option></select></div><div class="field"><label>Maximum hosts (1–256)</label><input type="number" name="max_hosts" min="1" max="256" value="32"></div></div><div class="checks"><label><input type="checkbox" name="modules" value="web" checked> Web</label><label><input type="checkbox" name="modules" value="tls" checked> TLS</label><label><input type="checkbox" name="modules" value="network"> Network / Nmap</label><label><input type="checkbox" name="modules" value="zap"> ZAP baseline</label></div><button class="btn primary">Submit engagement for ANISH ENTERPRISES approval →</button>';
+  const choices=engForm.querySelector(".assetChoices");
+  assets.forEach(asset=>{const label=node("label");const input=node("input");input.type="checkbox";input.name="asset_ids";input.value=asset.id;label.append(input,document.createTextNode(asset.canonical_target));choices.append(label)});
+  engForm.onsubmit=async e=>{e.preventDefault();const b=engForm.querySelector("button");b.disabled=true;try{const fd=new FormData(engForm);const result=await ScannerAuth.edge("engagement-management",{organization_id:org.id,project_id:project.id,title:fd.get("title"),purpose:fd.get("purpose"),asset_ids:fd.getAll("asset_ids"),modules:fd.getAll("modules"),profile:fd.get("profile"),max_hosts:Number(fd.get("max_hosts"))});notify(result.message||"Engagement submitted.","good");await reload()}catch(err){notify(err.message,"bad")}finally{b.disabled=false}};
+ engagementFormDetails.append(engSummary,engForm);box.append(engagementFormDetails);
+ return box;
+}
+async function reload(){workspace=await ScannerAuth.edge("workspace-data",{});renderOrganizations()}
+$("orgForm").onsubmit=async e=>{e.preventDefault();const b=$("orgForm").querySelector("button");b.disabled=true;try{
+ const user=workspace?.user;if(!user?.id)throw new Error("Could not identify the signed-in user.");
+ await apiRest("organizations","POST",{legal_name:$("orgName").value.trim(),slug:$("orgSlug").value.trim(),status:"pending",created_by:user.id});
+ notify("Organization request submitted. ANISH ENTERPRISES must verify the organization and activate its owner membership.","good");
+ $("orgForm").reset();$("orgSlug").dataset.edited="";await reload();
+ }catch(err){notify(err.message,"bad")}finally{b.disabled=false}};
+$("logout").onclick=async()=>{await ScannerAuth.signOut();location.replace("/login.html")};
+$("adminLink").onclick=()=>location.href="/admin.html";
+(async()=>{try{await loadWorkspace()}catch(err){if(err.code==="account_not_approved")notify("Your account is pending ANISH ENTERPRISES approval. Workspace access is not yet enabled.","bad");else notify(err.message,"bad")}})();
+</script></body></html>
