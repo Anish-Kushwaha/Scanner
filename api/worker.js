@@ -241,10 +241,22 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "GET") {
-    if (req.headers.origin && !originAllowed(req)) return sendJson(res, 403, { error: "Origin is not allowed." });
+    if (!originAllowed(req)) return sendJson(res, 403, { error: "Origin is not allowed." });
     const jobId = url.searchParams.get("job_id") || "";
-    if (jobId && !/^[a-f0-9-]{36}$/.test(jobId)) return sendJson(res, 400, { error: "Invalid job identifier." });
-    return proxyToWorker(req, res, "GET", jobId ? "/v1/jobs/" + jobId : "/health");
+    try {
+      if (jobId) {
+        if (!/^[a-f0-9-]{36}$/i.test(jobId)) return sendJson(res, 400, { error: "Invalid assessment identifier." });
+        const workerJobId = await authorizeJobStatus(req, jobId);
+        return proxyToWorker(req, res, "GET", "/v1/jobs/" + workerJobId);
+      }
+      await authorizeHealth(req);
+      return proxyToWorker(req, res, "GET", "/health");
+    } catch (error) {
+      return sendJson(res, Number(error?.status || 403), {
+        error: String(error?.message || "Enterprise access denied."),
+        code: String(error?.code || "enterprise_authorization_denied")
+      });
+    }
   }
 
   if (req.method === "POST") {
@@ -257,11 +269,27 @@ export default async function handler(req, res) {
     } catch {
       return sendJson(res, 400, { error: "Invalid JSON request." });
     }
-    if (!payload || typeof payload !== "object" || Array.isArray(payload) || payload.authorization_confirmed !== true) {
-      return sendJson(res, 403, { error: "Confirm that you own the target or have explicit authorization." });
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return sendJson(res, 400, { error: "Invalid assessment request." });
     }
     if (!checkRateLimit(req)) return sendJson(res, 429, { error: "Rate limit reached." }, { "Retry-After": "60" });
-    return proxyToWorker(req, res, "POST", "/v1/jobs", payload);
+    try {
+      const grant = await authorizeAssessment(req, payload);
+      const workerPayload = {
+        target: grant.target,
+        modules: grant.modules,
+        profile: grant.profile,
+        os_detect: Boolean(payload.os_detect && grant.os_detect),
+        udp: Boolean(payload.udp && grant.udp),
+        signed_grant: grant.signed_grant
+      };
+      return proxyToWorker(req, res, "POST", "/v1/jobs", workerPayload);
+    } catch (error) {
+      return sendJson(res, Number(error?.status || 403), {
+        error: String(error?.message || "Enterprise authorization denied."),
+        code: String(error?.code || "enterprise_authorization_denied")
+      });
+    }
   }
 
   res.setHeader("Allow", "GET, POST, OPTIONS");
