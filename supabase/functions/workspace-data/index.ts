@@ -24,9 +24,16 @@ Deno.serve(async(req:Request)=>{
   if(memberError)return reply(503,{error:"Unable to load organization memberships."});
   const orgIds=(members||[]).map(m=>m.organization_id);
   if(!orgIds.length)return reply(200,{user:{id:user.id,email:user.email,display_name:profile.display_name},organizations:[]});
-  const {data:orgs,error:orgError}=await admin.from("organizations").select("id,legal_name,slug,status")
-    .in("id",orgIds).eq("status","verified");
-  if(orgError)return reply(503,{error:"Unable to load verified organizations."});
+  const [{data:memberOrgs,error:orgError},{data:ownedPending,error:pendingOrgError}]=await Promise.all([
+    admin.from("organizations").select("id,legal_name,slug,status,created_by")
+      .in("id",orgIds).eq("status","verified"),
+    admin.from("organizations").select("id,legal_name,slug,status,created_by")
+      .eq("created_by",user.id).in("status",["pending","rejected","suspended"])
+  ]);
+  if(orgError||pendingOrgError)return reply(503,{error:"Unable to load organization workspaces."});
+  const orgMap=new Map();
+  [...(memberOrgs||[]),...(ownedPending||[])].forEach(org=>orgMap.set(org.id,org));
+  const orgs=[...orgMap.values()];
   const organizations=[];
   for(const org of orgs||[]){
    const membership=(members||[]).find(m=>m.organization_id===org.id);
@@ -36,7 +43,7 @@ Deno.serve(async(req:Request)=>{
    for(const project of projects||[]){
     const [{data:assets},{data:engagements}]=await Promise.all([
      admin.from("assets").select("id,kind,canonical_target,display_name,verification_status,verified_at")
-      .eq("organization_id",org.id).eq("project_id",project.id).eq("verification_status","verified"),
+      .eq("organization_id",org.id).eq("project_id",project.id),
      admin.from("engagements").select("id,title,status,starts_at,expires_at,policy")
       .eq("organization_id",org.id).eq("project_id",project.id).in("status",["approved","active"])
       .order("created_at",{ascending:false})
