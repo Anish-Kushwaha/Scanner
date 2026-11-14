@@ -1,0 +1,21 @@
+begin;
+revoke all on function public.rls_auto_enable() from public, anon, authenticated;
+
+create index if not exists assessment_jobs_engagement_idx on public.assessment_jobs(engagement_id);
+create index if not exists assessment_jobs_project_idx on public.assessment_jobs(project_id);
+create index if not exists assessment_jobs_requested_by_idx on public.assessment_jobs(requested_by);
+create index if not exists assessment_jobs_target_idx on public.assessment_jobs(target_id);
+create index if not exists assets_created_by_idx on public.assets(created_by);
+create index if not exists assets_verified_by_idx on public.assets(verified_by);
+create index if not exists audit_events_actor_idx on public.audit_events(actor_user_id);
+create index if not exists authorization_evidence_verified_by_idx on public.authorization_evidence(verified_by);
+create index if not exists engagements_project_idx on public.engagements(project_id);
+create index if not exists engagements_requested_by_idx on public.engagements(requested_by);
+create index if not exists engagements_approved_by_idx on public.engagements(approved_by);
+create index if not exists memberships_invited_by_idx on public.organization_memberships(invited_by);
+create index if not exists memberships_approved_by_idx on public.organization_memberships(approved_by);
+create index if not exists organizations_created_by_idx on public.organizations(created_by);
+create index if not exists organizations_verified_by_idx on public.organizations(verified_by);
+create index if not exists projects_created_by_idx on public.projects(created_by);
+create index if not exists profiles_approved_by_idx on public.user_profiles(approved_by);
+commit;

@@ -18,7 +18,9 @@ import ssl
 import threading
 import time
 import uuid
-from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
+import urllib.error
+import urllib.request
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlsplit, urlunsplit
 
 
 VERSION = "4.0.0"
@@ -665,8 +667,93 @@ class handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+
+
+    def _worker_request(self, method, path, payload=None):
+        base = os.environ.get("SCANNER_WORKER_URL", "").rstrip("/")
+        token = os.environ.get("SCANNER_WORKER_TOKEN", "")
+        if not base or not token:
+            self._send_json(503, {
+                "error": "The advanced scanning worker is not connected yet.",
+                "code": "worker_not_configured",
+                "setup": "Deploy the private worker and configure SCANNER_WORKER_URL and SCANNER_WORKER_TOKEN in Vercel.",
+            })
+            return
+        parsed = urlsplit(base)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+            self._send_json(503, {"error": "Worker URL configuration is invalid.", "code": "worker_config_invalid"})
+            return
+        url = base + path
+        body = None if payload is None else json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(
+            url, data=body, method=method,
+            headers={"Authorization": "Bearer " + token, "Accept": "application/json",
+                     "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=8) as response:
+                raw = response.read(1024 * 1024 + 1)
+                if len(raw) > 1024 * 1024:
+                    self._send_json(502, {"error": "Worker response exceeded the gateway limit."})
+                    return
+                try:
+                    result = json.loads(raw.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    self._send_json(502, {"error": "Worker returned an invalid response."})
+                    return
+                self._send_json(response.status, result)
+        except urllib.error.HTTPError as error:
+            try:
+                raw = error.read(64 * 1024)
+                result = json.loads(raw.decode("utf-8"))
+            except Exception:
+                result = {"error": "Worker request failed."}
+            self._send_json(error.code, result)
+        except (urllib.error.URLError, TimeoutError, OSError):
+            self._send_json(502, {"error": "The private scanning worker could not be reached.", "code": "worker_unreachable"})
+
+    def _worker_get(self):
+        if self.headers.get("Origin") and not self._origin_allowed():
+            self._send_json(403, {"error": "Origin is not allowed."})
+            return
+        params = parse_qs(urlsplit(self.path).query)
+        job_id = params.get("job_id", [""])[0]
+        if job_id and not re.fullmatch(r"[a-f0-9-]{36}", job_id):
+            self._send_json(400, {"error": "Invalid job identifier."})
+            return
+        self._worker_request("GET", "/v1/jobs/" + job_id if job_id else "/health")
+
+    def _worker_post(self):
+        if not self._origin_allowed():
+            self._send_json(403, {"error": "Requests must come from the Scanner web application."})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self._send_json(400, {"error": "Invalid Content-Length."})
+            return
+        if length <= 0 or length > 4 * 1024 * 1024:
+            self._send_json(413, {"error": "Request body missing or larger than 4 MB."})
+            return
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._send_json(400, {"error": "Invalid JSON request."})
+            return
+        if not isinstance(data, dict) or data.get("authorization_confirmed") is not True:
+            self._send_json(403, {"error": "Confirm that you own the target or have explicit authorization."})
+            return
+        allowed, retry_after = _check_rate_limit(_rate_limit_key(self))
+        if not allowed:
+            self._send_json(429, {"error": "Rate limit reached."}, {"Retry-After": retry_after})
+            return
+        self._worker_request("POST", "/v1/jobs", data)
+
     def do_GET(self):
         path = self._path()
+        if path == "/api/worker":
+            self._worker_get()
+            return
         if path == "/":
             self._send_json(200, {
                 "name": "Scanner API",
@@ -696,6 +783,9 @@ class handler(http.server.BaseHTTPRequestHandler):
             })
 
     def do_POST(self):
+        if self._path() == "/api/worker":
+            self._worker_post()
+            return
         if self._path() != "/api/scan":
             self._send_json(404, {"error": "Endpoint not found."})
             return
