@@ -199,6 +199,8 @@ create table public.assessments (
   created_at timestamptz not null default now(),
   started_at timestamptz,
   completed_at timestamptz,
+  unique (id, organization_id),
+  unique (id, organization_id, asset_id),
   foreign key (project_id, organization_id)
     references public.projects(id, organization_id) on delete cascade,
   foreign key (engagement_id, organization_id)
@@ -555,6 +557,7 @@ create policy assets_manager_update_unverified on public.assets for update to au
     and verification_status in ('pending','pending_dns','pending_review','rejected','expired')
     and verified_at is null
     and verified_by is null
+    and challenge_hash is null
   );
 
 create policy asset_evidence_member_read on public.asset_authorization_evidence for select to authenticated
@@ -605,11 +608,14 @@ create policy engagement_assets_manager_insert on public.engagement_assets for i
     (select private.has_org_role(organization_id, array['owner','org_admin','security_engineer']))
     and exists (
       select 1 from public.engagements e
-      where e.id = engagement_id and e.organization_id = organization_id and e.status = 'draft'
+      where e.id = engagement_assets.engagement_id
+        and e.organization_id = engagement_assets.organization_id
+        and e.status = 'draft'
     )
     and exists (
       select 1 from public.assets a
-      where a.id = asset_id and a.organization_id = organization_id
+      where a.id = engagement_assets.asset_id
+        and a.organization_id = engagement_assets.organization_id
         and a.verification_status = 'verified'
         and (a.authorization_expires_at is null or a.authorization_expires_at > now())
     )
@@ -638,6 +644,7 @@ create policy audit_events_read on public.audit_events for select to authenticat
 
 -- Explicit API grants. The 2026 Data API exposure change means schema exposure
 -- must also be enabled deliberately in Supabase project settings; RLS remains mandatory.
+grant usage on schema public to authenticated, service_role;
 grant select on
   public.platform_profiles,
   public.platform_admins,
