@@ -12,6 +12,10 @@
     {
       "src": "api/index.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "api/enterprise.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -38,8 +42,16 @@
       "dest": "/api/worker.js"
     },
     {
+      "src": "/api/enterprise/?$",
+      "dest": "/api/enterprise.js"
+    },
+    {
       "src": "/health/?$",
       "dest": "/api/index.py"
+    },
+    {
+      "src": "/enterprise/?$",
+      "dest": "/enterprise.html"
     },
     {
       "handle": "filesystem"
