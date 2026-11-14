@@ -55,7 +55,7 @@ create table public.org_memberships (
 
 create table public.access_requests (
   id uuid primary key default gen_random_uuid(),
-  requester_user_id uuid not null references auth.users(id) on delete cascade,
+  requester_user_id uuid references auth.users(id) on delete set null,
   email text not null,
   full_name text not null,
   organization_name text not null,
@@ -102,6 +102,7 @@ create table public.assets (
   verified_at timestamptz,
   verified_by uuid references auth.users(id),
   authorization_expires_at timestamptz,
+  authorization_evidence text,
   review_note text,
   created_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
@@ -343,7 +344,7 @@ begin
   if (select auth.uid()) is null then
     return jsonb_build_object(
       'authenticated', false,
-      'platform_role', null,
+      'platform_admin', jsonb_build_object('is_admin', false),
       'profile_status', 'anonymous',
       'memberships', '[]'::jsonb
     );
@@ -353,9 +354,10 @@ begin
   from public.platform_profiles pp
   where pp.user_id = (select auth.uid());
 
-  select jsonb_build_object('role', pa.role) into v_admin
+  select jsonb_build_object('is_admin', true, 'role', pa.role) into v_admin
   from public.platform_admins pa
-  where pa.user_id = (select auth.uid());
+  join public.platform_profiles pp on pp.user_id = pa.user_id
+  where pa.user_id = (select auth.uid()) and pp.status = 'active';
 
   select coalesce(jsonb_agg(jsonb_build_object(
     'organization_id', o.id,
@@ -372,7 +374,7 @@ begin
 
   return jsonb_build_object(
     'authenticated', true,
-    'platform_role', v_admin,
+    'platform_admin', coalesce(v_admin, jsonb_build_object('is_admin', false)),
     'profile_status', coalesce(v_profile->>'status', 'pending'),
     'profile', v_profile,
     'memberships', coalesce(v_memberships, '[]'::jsonb)
@@ -663,6 +665,20 @@ to authenticated;
 
 grant all privileges on all tables in schema public to service_role;
 grant usage, select on all sequences in schema public to service_role;
+
+-- Public RPC wrapper is the only exposed entry to the private access-context helper.
+create or replace function public.get_my_platform_access()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select private.get_my_platform_access();
+$;
+
+revoke all on function public.get_my_platform_access() from public, anon;
+grant execute on function public.get_my_platform_access() to authenticated;
 
 -- Read-only self-context is exposed as an authenticated RPC, not user metadata.
 revoke all on function private.is_platform_staff() from public, anon;
