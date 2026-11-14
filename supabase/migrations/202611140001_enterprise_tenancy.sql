@@ -266,6 +266,24 @@ grant execute on function private.can_launch_assessment(uuid,uuid,uuid,uuid,text
 create trigger on_auth_user_created
  after insert on auth.users for each row execute procedure private.handle_new_auth_user();
 
+create or replace function private.bootstrap_org_owner_membership()
+returns trigger language plpgsql security definer set search_path = ''
+as $
+begin
+ insert into public.organization_memberships(
+  organization_id,user_id,role,status,invited_by,approved_by
+ ) values (
+  new.id,new.created_by,'owner','invited',new.created_by,null
+ ) on conflict (organization_id,user_id) do nothing;
+ return new;
+end
+$;
+revoke all on function private.bootstrap_org_owner_membership() from public, anon, authenticated;
+create trigger on_organization_created
+ after insert on public.organizations for each row
+ execute procedure private.bootstrap_org_owner_membership();
+
+
 alter table public.user_profiles enable row level security;
 alter table public.organizations enable row level security;
 alter table public.organization_memberships enable row level security;
@@ -293,6 +311,12 @@ create policy membership_read on public.organization_memberships for select to a
  using (user_id=(select auth.uid()) or private.is_org_member(organization_id));
 create policy membership_admin_manage on public.organization_memberships for all to authenticated
  using (private.is_platform_admin()) with check (private.is_platform_admin());
+create policy membership_owner_invite on public.organization_memberships for insert to authenticated
+ with check (
+  status='invited' and approved_by is null and invited_by=(select auth.uid())
+  and role in ('security_engineer','developer','auditor')
+  and private.has_org_role(organization_id,array['owner']::public.membership_role[])
+);
 
 create policy projects_member_read on public.projects for select to authenticated
  using (private.is_org_member(organization_id));
