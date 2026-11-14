@@ -155,6 +155,125 @@ def resolve_target(host: str, allow_hosts: set[str], networks: list[ipaddress._B
         return answers
 
 
+def resolve_enterprise_target(raw_target: str, scope: dict) -> tuple[str, str, list[str], ipaddress._BaseNetwork | None]:
+    """Resolve a target only when it exactly matches a server-approved engagement scope.
+
+    The caller must obtain scope data from the authenticated control plane. This function
+    intentionally rejects private/reserved destinations on public workers; private assets
+    require a separately deployed customer-connected scanner agent.
+    """
+    if not isinstance(scope, dict):
+        raise ScopeError("Enterprise authorization scope is missing.")
+    if scope.get("asset_verification_status") != "verified":
+        raise ScopeError("The target asset has not been verified.")
+    if scope.get("engagement_status") not in {"approved", "active"}:
+        raise ScopeError("The engagement is not approved for scanning.")
+
+    now = dt.datetime.now(dt.timezone.utc)
+    for key in ("asset_authorization_expires_at", "engagement_expires_at"):
+        raw_expiry = scope.get(key)
+        if raw_expiry:
+            try:
+                expiry = dt.datetime.fromisoformat(str(raw_expiry).replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ScopeError("Authorization expiry is invalid.") from exc
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=dt.timezone.utc)
+            if now >= expiry:
+                raise ScopeError("The target authorization or engagement has expired.")
+
+    asset_type = str(scope.get("asset_type") or "")
+    canonical = str(scope.get("canonical_target") or "").strip()
+    if not canonical or len(canonical) > 2048:
+        raise ScopeError("The approved target scope is invalid.")
+
+    try:
+        network = ipaddress.ip_network(canonical, strict=False) if asset_type == "cidr" else None
+    except ValueError as exc:
+        raise ScopeError("The approved network range is invalid.") from exc
+
+    if network is not None:
+        try:
+            requested = ipaddress.ip_network(str(raw_target).strip(), strict=False)
+        except ValueError as exc:
+            raise ScopeError("A CIDR engagement requires the exact approved network range.") from exc
+        if requested != network:
+            raise ScopeError("Requested network range does not match the approved engagement asset.")
+        max_hosts = int(scope.get("max_hosts") or 256)
+        if requested.num_addresses > min(max_hosts, 256):
+            raise ScopeError("Network scope exceeds the engagement host limit.")
+        if not requested.network_address.is_global or not requested.broadcast_address.is_global:
+            raise ScopeError("Private or reserved network ranges require a customer-connected scanner agent.")
+        addresses = [str(address) for address in requested.hosts()]
+        if requested.num_addresses == 1:
+            addresses = [str(requested.network_address)]
+        return str(requested), str(requested.network_address), addresses, requested
+
+    target = normalize_target(str(raw_target))
+    parsed_target = urllib.parse.urlsplit(target)
+    host = parsed_target.hostname or ""
+    if not host:
+        raise ScopeError("Target hostname is invalid.")
+
+    if asset_type == "domain":
+        approved_host = canonical.rstrip(".").lower()
+        try:
+            approved_host = approved_host.encode("idna").decode("ascii")
+        except UnicodeError as exc:
+            raise ScopeError("Approved domain name is invalid.") from exc
+        host_matches = host == approved_host or (
+            bool(scope.get("include_subdomains"))
+            and host.endswith("." + approved_host)
+        )
+        if not host_matches:
+            raise ScopeError("Target hostname is outside the verified domain asset.")
+    elif asset_type == "ip":
+        try:
+            approved_ip = str(ipaddress.ip_address(canonical))
+            requested_ip = str(ipaddress.ip_address(host))
+        except ValueError as exc:
+            raise ScopeError("IP engagements require a literal IP target.") from exc
+        if approved_ip != requested_ip:
+            raise ScopeError("Target IP does not match the approved asset.")
+    elif asset_type == "url":
+        approved_url = normalize_target(canonical)
+        parsed_approved = urllib.parse.urlsplit(approved_url)
+        if (
+            parsed_target.hostname != parsed_approved.hostname
+            or parsed_target.scheme != parsed_approved.scheme
+            or parsed_target.port != parsed_approved.port
+            or not parsed_target.path.startswith(parsed_approved.path.rstrip("/") + "/")
+                and parsed_target.path != parsed_approved.path
+        ):
+            raise ScopeError("Target URL is outside the verified URL path scope.")
+    else:
+        raise ScopeError("Unsupported enterprise asset type.")
+
+    try:
+        literal = ipaddress.ip_address(host)
+        addresses = [str(literal)]
+    except ValueError:
+        try:
+            answers = sorted({
+                row[4][0]
+                for row in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+            })
+        except socket.gaierror as exc:
+            raise ToolError(f"DNS resolution failed for {host}: {exc}") from exc
+        if not answers:
+            raise ToolError(f"No DNS answers found for {host}.")
+        addresses = answers
+
+    for address in addresses:
+        parsed_address = ipaddress.ip_address(address)
+        if not parsed_address.is_global:
+            raise ScopeError(
+                "Private, loopback, link-local, multicast, and reserved destinations "
+                "require a customer-connected scanner agent."
+            )
+    return target, host, addresses, None
+
+
 def add_finding(findings: list[Finding], title: str, severity: str, confidence: str,
                 category: str, asset: str, description: str, evidence: str, remediation: str,
                 cve: str | None = None) -> None:
