@@ -23,10 +23,11 @@ Deno.serve(async(req:Request)=>{
     .select("organization_id,role,status").eq("user_id",user.id).eq("status","active");
   if(memberError)return reply(503,{error:"Unable to load organization memberships."});
   const orgIds=(members||[]).map(m=>m.organization_id);
-  if(!orgIds.length)return reply(200,{user:{id:user.id,email:user.email,display_name:profile.display_name},organizations:[]});
+  const memberOrgsQuery=orgIds.length
+    ? admin.from("organizations").select("id,legal_name,slug,status,created_by").in("id",orgIds).eq("status","verified")
+    : Promise.resolve({data:[],error:null});
   const [{data:memberOrgs,error:orgError},{data:ownedPending,error:pendingOrgError}]=await Promise.all([
-    admin.from("organizations").select("id,legal_name,slug,status,created_by")
-      .in("id",orgIds).eq("status","verified"),
+    memberOrgsQuery,
     admin.from("organizations").select("id,legal_name,slug,status,created_by")
       .eq("created_by",user.id).in("status",["pending","rejected","suspended"])
   ]);
