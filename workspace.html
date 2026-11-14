@@ -70,7 +70,7 @@ function renderProject(org,project){
  left.append(node("h3","",project.name),node("p","muted",project.description||"Project security workspace"));
  head.append(left,node("span","badge","PROJECT"));box.append(head);
  const assets=project.assets||[],engagements=project.engagements||[];
- box.append(node("strong","","Verified assets"));
+ box.append(node("strong","","Registered assets"));
  if(!assets.length)box.append(node("div","empty","No verified domains. Add a domain and complete DNS verification."));
  const assetList=node("div","items");
  assets.forEach(asset=>{
