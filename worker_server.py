@@ -9,6 +9,9 @@ from __future__ import annotations
 import ipaddress
 import json
 import hashlib
+import hmac
+import base64
+import socket
 import os
 import re
 import shutil
@@ -21,8 +24,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from scanner_engine import (
-    Finding, ScopeError, ToolError, add_finding, load_allowlist, normalize_target,
-    resolve_target, web_assessment, run_nmap, run_zap_baseline,
+    Finding, ScopeError, ToolError, add_finding, normalize_target,
+    web_assessment, run_nmap, run_zap_baseline,
     score_findings, utc_now,
 )
 
@@ -30,6 +33,7 @@ HOST = os.environ.get("SCANNER_WORKER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("SCANNER_WORKER_PORT", "8787"))
 TOKEN = os.environ.get("SCANNER_WORKER_TOKEN", "")
 SOURCE_SHA = os.environ.get("SCANNER_SOURCE_SHA", "")
+SCOPE_SIGNING_SECRET = os.environ.get("SCANNER_SCOPE_SIGNING_SECRET", "")
 JOB_DIR = Path(os.environ.get("SCANNER_JOB_DIR", "/var/lib/scanner/jobs"))
 TOKEN_FILE = Path(os.environ.get("SCANNER_WORKER_TOKEN_FILE", str(JOB_DIR / ".worker-token")))
 MAX_REQUEST = 8 * 1024 * 1024
@@ -100,55 +104,104 @@ def prune_job_history():
                 files.remove(path)
 
 
+
+def verify_scope_grant(request: dict) -> dict:
+    """Verify a short-lived, single-engagement HMAC grant from the control plane."""
+    token = request.get("signed_grant", "")
+    if not SCOPE_SIGNING_SECRET or not isinstance(token, str) or token.count(".") != 1:
+        raise ScopeError("A valid ANISH ENTERPRISES engagement grant is required.")
+    encoded, supplied = token.split(".", 1)
+    expected = hmac.new(SCOPE_SIGNING_SECRET.encode(), encoded.encode(), hashlib.sha256).digest()
+    try:
+        actual = base64.urlsafe_b64decode(supplied + "=" * (-len(supplied) % 4))
+        claims = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise ScopeError("The engagement grant is malformed.") from exc
+    if not hmac.compare_digest(expected, actual):
+        raise ScopeError("The engagement grant signature is invalid.")
+    now = int(time.time())
+    if claims.get("iss") != "anish-enterprises-scanner" or claims.get("aud") != "scanner-worker":
+        raise ScopeError("The engagement grant has an invalid issuer or audience.")
+    if not isinstance(claims.get("iat"), int) or not isinstance(claims.get("exp"), int):
+        raise ScopeError("The engagement grant has invalid timestamps.")
+    if claims["iat"] > now + 30 or claims["exp"] <= now or claims["exp"] > now + 300:
+        raise ScopeError("The engagement grant has expired or exceeds its lifetime.")
+    required = ("sub", "organization_id", "project_id", "engagement_id", "target_id", "job_id", "target", "jti")
+    if not all(isinstance(claims.get(key), str) and claims[key] for key in required):
+        raise ScopeError("The engagement grant is incomplete.")
+    if not re.fullmatch(r"[0-9a-f-]{36}", claims["job_id"]):
+        raise ScopeError("The engagement grant has an invalid job identifier.")
+    if claims.get("target") != request.get("target"):
+        raise ScopeError("The submitted target does not match the signed engagement.")
+    if set(request.get("modules") or []) != set(claims.get("modules") or []):
+        raise ScopeError("Requested modules do not match the signed engagement.")
+    if request.get("profile") != claims.get("profile"):
+        raise ScopeError("Requested scan profile does not match the signed engagement.")
+    if bool(request.get("os_detect")) and not claims.get("os_detect"):
+        raise ScopeError("OS fingerprinting is not included in this engagement.")
+    if bool(request.get("udp")) and not claims.get("udp"):
+        raise ScopeError("UDP scanning is not included in this engagement.")
+    return claims
+
+
 def execute_job(job_id: str, request: dict):
     job = read_job(job_id)
     if not job:
         return
+    claims = verify_scope_grant(request)
+    if claims["job_id"] != job_id:
+        raise ScopeError("Worker job identifier does not match the authorized database job.")
     job["status"] = "running"
     job["started_at"] = utc_now()
     write_job(job)
+
     findings: list[Finding] = []
-    modules = set(request.get("modules") or ["web", "network", "tls"])
+    modules = set(claims.get("modules") or [])
     allowed_modules = {"web", "network", "tls", "zap"}
     if not modules or not modules.issubset(allowed_modules):
-        raise ValueError("Unsupported assessment module requested.")
-    target_raw = request.get("target", "")
+        raise ScopeError("Unsupported assessment module requested by the grant.")
+
+    target_raw = str(claims["target"])
     target = ""
     host = ""
-    addresses = []
-    if target_raw:
+    addresses: list[str] = []
+    try:
+        network = ipaddress.ip_network(target_raw, strict=False)
+    except ValueError:
+        network = None
+
+    if network:
+        if network.num_addresses > min(MAX_TARGETS, int(claims.get("max_hosts", 32))):
+            raise ScopeError("Network scope exceeds the approved engagement host limit.")
+        addresses = [str(ip) for ip in network.hosts()]
+        if not addresses:
+            addresses = [str(network.network_address)]
+        if not all(ipaddress.ip_address(ip).is_global for ip in addresses):
+            raise ScopeError("Private, loopback, link-local and non-global targets require a dedicated approved private scanner agent.")
+        target = str(network)
+        host = str(network.network_address)
+    else:
+        target = normalize_target(target_raw)
+        parsed = urlsplit(target)
+        host = parsed.hostname or ""
         try:
-            network = ipaddress.ip_network(str(target_raw).strip(), strict=False)
+            literal = ipaddress.ip_address(host)
+            addresses = [str(literal)]
         except ValueError:
-            network = None
-        allow_hosts, networks = load_allowlist()
-        if network:
-            if network.num_addresses > 256:
-                raise ScopeError("Network scope is limited to 256 addresses.")
-            if not any(network.subnet_of(n) for n in networks if n.version == network.version):
-                raise ScopeError("CIDR must be contained in SCANNER_ALLOWED_TARGETS.")
-            target = str(network)
-            host = str(network.network_address)
-            addresses = [str(ip) for ip in network.hosts()]
-        else:
-            target = normalize_target(str(target_raw))
-            parsed = urlsplit(target)
-            host = parsed.hostname or ""
-            addresses = resolve_target(host, allow_hosts, networks)
-    if ({"web", "network", "tls", "zap"} & modules) and not target:
-        raise ValueError("A target is required for the selected network/web modules.")
-    profile = request.get("profile", "standard")
-    if profile not in {"passive", "standard", "advanced"}:
-        raise ValueError("Invalid scan profile.")
+            try:
+                addresses = sorted({row[4][0] for row in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)})
+            except OSError as exc:
+                raise ScopeError("The authorized target could not be resolved.") from exc
+        if not addresses or not all(ipaddress.ip_address(ip).is_global for ip in addresses):
+            raise ScopeError("The target resolves to a private or non-global address. Use an approved private scanner agent.")
+
+    profile = claims.get("profile", "passive")
     results = {"target": target, "profile": profile}
     if "network" in modules:
-        # CIDR/IP scopes stay as network notation; URL targets must be reduced
-        # to their validated hostname before passing them to Nmap.
         nmap_target = target if network is not None else host
         results["network"] = run_nmap(
             nmap_target, addresses, profile,
-            bool(request.get("os_detect")), bool(request.get("udp")),
-            request.get("scan_config") if isinstance(request.get("scan_config"), dict) else {},
+            bool(request.get("os_detect")), bool(request.get("udp")), {},
         )
     if "web" in modules or "tls" in modules:
         if target.startswith(("http://", "https://")):
@@ -157,11 +210,17 @@ def execute_job(job_id: str, request: dict):
             results["web"] = {"status": "not_applicable", "note": "Web checks require an HTTP(S) URL."}
     if "zap" in modules:
         results["zap"] = run_zap_baseline(target, True)
+
     results["findings"] = [f.__dict__ for f in findings]
     results["summary"] = score_findings(findings)
     results["scan_id"] = job_id
-    results["schema_version"] = "1.1"
-    results["authorization"] = {"attested": True, "allowlist_enforced": True}
+    results["schema_version"] = "2.0"
+    results["authorization"] = {
+        "engagement_grant_verified": True,
+        "organization_id": claims["organization_id"],
+        "engagement_id": claims["engagement_id"],
+        "target_id": claims["target_id"],
+    }
     results["generated_at"] = utc_now()
     results["capabilities"] = {
         "web_crawling": bool(results.get("web", {}).get("pages_checked")),
@@ -180,11 +239,10 @@ def execute_job(job_id: str, request: dict):
         "No exploit execution, credential attacks, persistence, evasion, destructive tests, or denial-of-service checks.",
         "Service version fingerprints are not proof of CVE exploitability.",
         "The heuristic risk score is not CVSS.",
-        "The worker is a single-host service; durable distributed queues, user accounts and team RBAC are not included.",
+        "Private targets require a dedicated approved customer-connected scanner agent.",
     ]
     job.update({"status": "completed", "completed_at": utc_now(), "report": results})
     write_job(job)
-
 
 def run_job(job_id: str, request: dict):
     try:
@@ -228,7 +286,7 @@ class Handler(BaseHTTPRequestHandler):
                 "service": "Scanner private worker",
                 "nmap_privileges": bool(hasattr(os, "geteuid") and os.geteuid() == 0),
                 "source_sha": SOURCE_SHA,
-                "scope_sha": hashlib.sha256(os.environ.get("SCANNER_ALLOWED_TARGETS", "").encode()).hexdigest(),
+                "scope_sha": hashlib.sha256(SCOPE_SIGNING_SECRET.encode()).hexdigest(),
             })
             return
         if not self.authorized():
@@ -261,19 +319,31 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             data = json.loads(self.rfile.read(length))
-            if not isinstance(data, dict) or data.get("authorization_confirmed") is not True:
-                raise ValueError("Confirm written authorization for this assessment.")
+            if not isinstance(data, dict):
+                raise ValueError("Invalid assessment request.")
+            claims = verify_scope_grant(data)
+            job_id = claims["job_id"]
             with lock:
                 if len(active_jobs) >= 2:
                     self.send_json(429, {"error": "Worker capacity reached. Retry shortly."})
+                    return
+                existing = read_job(job_id)
+                if existing:
+                    self.send_json(409, {"error": "This assessment grant has already been submitted."})
                     return
                 if len(list(JOB_DIR.glob("*.json"))) >= MAX_JOBS:
                     prune_job_history()
                     if len(list(JOB_DIR.glob("*.json"))) >= MAX_JOBS:
                         self.send_json(429, {"error": "Job history is full because no completed or failed records can be pruned."})
                         return
-                job_id = str(uuid.uuid4())
-                job = {"job_id": job_id, "status": "queued", "created_at": utc_now()}
+                job = {
+                    "job_id": job_id,
+                    "organization_id": claims["organization_id"],
+                    "engagement_id": claims["engagement_id"],
+                    "requested_by": claims["sub"],
+                    "status": "queued",
+                    "created_at": utc_now()
+                }
                 write_job(job)
                 active_jobs.add(job_id)
                 executor.submit(run_job, job_id, data)
