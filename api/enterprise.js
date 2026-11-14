@@ -75,7 +75,7 @@ async function registerAsset(ctx, data) {
   const type = String(data.asset_type || "");
   const value = normalizeAsset(type, data.target);
   if (await getOne("assets", { project_id: "eq." + projectId, canonical_value: "eq." + value })) fail("Asset already registered.", 409);
-  const domain = type === "domain";
+  const domain = type === "domain" || type === "url";
   const token = domain ? generateChallenge() : null;
   const asset = await insertOne("assets", {
     organization_id: org, project_id: projectId, asset_type: type, canonical_value: value,
@@ -91,7 +91,7 @@ async function registerAsset(ctx, data) {
     asset,
     verification: domain ? {
       method: "dns_txt", record_type: "TXT",
-      record_name: "_anish-enterprises-verification." + value,
+      record_name: "_anish-enterprises-verification." + (type === "url" ? new URL(value).hostname : value),
       record_value: "anish-enterprises-verification=" + token,
       expires_at: asset.challenge_expires_at,
     } : { method: "manual_review", message: "ANISH ENTERPRISES must review authorization evidence for IP/CIDR assets." },
@@ -101,12 +101,13 @@ async function verifyAsset(ctx, data) {
   if (!uuid(data.asset_id) || !uuid(data.organization_id)) fail("Invalid asset identifier.");
   orgRole(ctx, data.organization_id, ["owner", "org_admin", "security_engineer"]);
   const asset = await getOne("assets", { id: "eq." + data.asset_id, organization_id: "eq." + data.organization_id });
-  if (!asset || asset.asset_type !== "domain") fail("Domain asset not found.", 404);
+  if (!asset || !["domain", "url"].includes(asset.asset_type)) fail("DNS-verifiable domain asset not found.", 404);
   if (asset.verification_status === "verified") return asset;
   if (asset.verification_status !== "pending_dns" || !asset.challenge_hash ||
       !asset.challenge_expires_at || new Date(asset.challenge_expires_at).getTime() < Date.now()) fail("DNS challenge expired or invalid.", 409);
   let records = [];
-  try { records = (await resolveTxt("_anish-enterprises-verification." + asset.canonical_value)).map(parts => parts.join("")); } catch {}
+  const host = asset.asset_type === "url" ? new URL(asset.canonical_value).hostname : asset.canonical_value;
+  try { records = (await resolveTxt("_anish-enterprises-verification." + host)).map(parts => parts.join("")); } catch {}
   const record = records.find(x => x.startsWith("anish-enterprises-verification="));
   if (!record || sha256(record.slice("anish-enterprises-verification=".length)) !== asset.challenge_hash) {
     fail("DNS TXT proof was not found. Publish the provided TXT record and retry.", 409);
@@ -160,6 +161,165 @@ async function createEngagement(ctx, data) {
   await auditEvent(ctx, org, "engagement.submitted", "engagement", engagement.id, "success", { asset_count: ids.length, modules: selectedModules });
   return engagement;
 }
+async function dispatchInternal(req, method, query = "", payload) {
+  const token = process.env.SCANNER_WORKER_TOKEN || "";
+  if (token.length < 32) fail("Private scanner worker is not configured.", 503);
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim();
+  if (!host || /[\\s,]/.test(host)) fail("Unable to resolve the private worker gateway host.", 503);
+  const protocol = String(req.headers["x-forwarded-proto"] || "https").split(",")[0];
+  const response = await fetch(protocol + "://" + host + "/api/worker" + query, {
+    method,
+    headers: {
+      "x-scanner-internal-key": token,
+      ...(payload ? { "Content-Type": "application/json" } : {}),
+    },
+    body: payload ? JSON.stringify(payload) : undefined,
+    cache: "no-store",
+    signal: AbortSignal.timeout(30000),
+  });
+  const text = await response.text();
+  let result = {};
+  try { result = text ? JSON.parse(text) : {}; } catch {}
+  if (!response.ok) fail(result.error || "Private scanner worker request failed.", response.status);
+  return result;
+}
+
+async function launchAssessment(ctx, req, data) {
+  const engagementId = String(data.engagement_id || "");
+  const assetId = String(data.asset_id || "");
+  if (!uuid(engagementId) || !uuid(assetId)) fail("Valid engagement and asset IDs are required.");
+  const engagement = await getOne("engagements", { id: "eq." + engagementId });
+  if (!engagement) fail("Engagement not found.", 404);
+  orgRole(ctx, engagement.organization_id, ["owner", "org_admin", "security_engineer"]);
+  if (!["approved", "active"].includes(engagement.status)) fail("This engagement has not been approved by ANISH ENTERPRISES.", 403);
+  const now = Date.now();
+  if (engagement.starts_at && new Date(engagement.starts_at).getTime() > now) fail("Engagement authorization has not started.", 403);
+  if (engagement.expires_at && new Date(engagement.expires_at).getTime() <= now) fail("Engagement authorization has expired.", 403);
+
+  const asset = await getOne("assets", {
+    id: "eq." + assetId,
+    organization_id: "eq." + engagement.organization_id,
+    project_id: "eq." + engagement.project_id,
+    verification_status: "eq.verified",
+  });
+  if (!asset) fail("Target asset is not currently verified.", 403);
+  if (asset.authorization_expires_at && new Date(asset.authorization_expires_at).getTime() <= now) {
+    fail("Target authorization has expired.", 403);
+  }
+  const linked = await getOne("engagement_assets", {
+    engagement_id: "eq." + engagement.id,
+    organization_id: "eq." + engagement.organization_id,
+    asset_id: "eq." + asset.id,
+  });
+  if (!linked) fail("This asset is not included in the approved engagement.", 403);
+
+  const requested = Array.isArray(data.modules) ? [...new Set(data.modules)] : engagement.allowed_modules;
+  if (!requested.length || requested.some(x => !modules.has(x) || !engagement.allowed_modules.includes(x))) {
+    fail("Requested assessment modules exceed the approved engagement.", 403);
+  }
+
+  const assessment = await insertOne("assessments", {
+    organization_id: engagement.organization_id,
+    project_id: engagement.project_id,
+    engagement_id: engagement.id,
+    asset_id: asset.id,
+    submitted_by: ctx.user.id,
+    status: "queued",
+    target_snapshot: asset.canonical_value,
+    modules: requested,
+    profile: ["passive", "standard", "advanced"].includes(data.profile) ? data.profile : "standard",
+  });
+  const enterpriseScope = {
+    organization_id: engagement.organization_id,
+    engagement_id: engagement.id,
+    asset_id: asset.id,
+    asset_type: asset.asset_type,
+    canonical_target: asset.canonical_value,
+    asset_verification_status: asset.verification_status,
+    asset_authorization_expires_at: asset.authorization_expires_at,
+    engagement_status: engagement.status,
+    engagement_starts_at: engagement.starts_at,
+    engagement_expires_at: engagement.expires_at,
+    allowed_modules: engagement.allowed_modules,
+    max_hosts: engagement.max_hosts,
+    include_subdomains: false,
+  };
+
+  try {
+    const queued = await dispatchInternal(req, "POST", "", {
+      target: asset.canonical_value,
+      modules: requested,
+      profile: assessment.profile,
+      enterprise_scope: enterpriseScope,
+      os_detect: Boolean(data.os_detect),
+      udp: Boolean(data.udp),
+      scan_config: data.scan_config && typeof data.scan_config === "object" ? data.scan_config : {},
+    });
+    await patchOne("assessments", { id: "eq." + assessment.id }, {
+      worker_job_id: queued.job_id,
+      status: "running",
+      started_at: new Date().toISOString(),
+    });
+    await auditEvent(ctx, engagement.organization_id, "assessment.launched", "assessment", assessment.id, "success", {
+      engagement_id: engagement.id, asset_id: asset.id, modules: requested,
+    });
+    return { assessment_id: assessment.id, worker_job_id: queued.job_id, status: queued.status };
+  } catch (error) {
+    await patchOne("assessments", { id: "eq." + assessment.id }, {
+      status: "failed", error_code: "worker_dispatch_failed", completed_at: new Date().toISOString(),
+    }).catch(() => {});
+    await auditEvent(ctx, engagement.organization_id, "assessment.dispatch_failed", "assessment", assessment.id, "failure", {});
+    throw error;
+  }
+}
+
+async function getAssessment(ctx, req, id) {
+  if (!uuid(id)) fail("Invalid assessment ID.");
+  const assessment = await getOne("assessments", { id: "eq." + id });
+  if (!assessment) fail("Assessment not found.", 404);
+  orgRole(ctx, assessment.organization_id, ["owner", "org_admin", "security_engineer", "developer", "auditor"]);
+  let worker = null;
+  if (assessment.worker_job_id) {
+    worker = await dispatchInternal(req, "GET", "?job_id=" + encodeURIComponent(assessment.worker_job_id));
+    const job = worker?.job || worker;
+    const status = job?.status;
+    if (status === "completed" && assessment.status !== "completed") {
+      const report = job.report || {};
+      const summary = report.summary || {};
+      await patchOne("assessments", { id: "eq." + assessment.id }, {
+        status: "completed", completed_at: new Date().toISOString(), summary,
+      });
+      const findings = Array.isArray(report.findings) ? report.findings : [];
+      if (findings.length) {
+        const rows = findings.slice(0, 2000).map(f => ({
+          organization_id: assessment.organization_id,
+          assessment_id: assessment.id,
+          asset_id: assessment.asset_id,
+          fingerprint: String(f.id || f.title || "").slice(0, 180),
+          title: String(f.title || "Untitled finding").slice(0, 240),
+          severity: ["critical", "high", "medium", "low", "info"].includes(String(f.severity).toLowerCase()) ? String(f.severity).toLowerCase() : "info",
+          confidence: ["high", "medium", "low"].includes(String(f.confidence).toLowerCase()) ? String(f.confidence).toLowerCase() : "medium",
+          category: String(f.category || "general").slice(0, 120),
+          description: String(f.description || "").slice(0, 8000),
+          evidence: { detail: String(f.evidence || "").slice(0, 4000) },
+          remediation: String(f.remediation || "").slice(0, 8000),
+          cve: f.cve ? String(f.cve).slice(0, 80) : null,
+        }));
+        await dbRequest("assessment_findings?on_conflict=assessment_id,fingerprint", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(rows),
+        });
+      }
+    } else if (status === "failed" && assessment.status !== "failed") {
+      await patchOne("assessments", { id: "eq." + assessment.id }, {
+        status: "failed", error_code: "worker_job_failed", completed_at: new Date().toISOString(),
+      });
+    }
+  }
+  return { assessment, worker };
+}
+
 async function review(ctx, table, id, action, note) {
   admin(ctx);
   if (!uuid(id) || !["approve", "reject"].includes(action)) fail("Invalid review request.");
@@ -170,7 +330,9 @@ async function review(ctx, table, id, action, note) {
   const now = new Date().toISOString();
   const patch = table === "engagements" ?
     (action === "approve" ? { status: "approved", approved_by: ctx.user.id, approved_at: now, approval_note: String(note || "Approved by ANISH ENTERPRISES.").slice(0, 1000) } : { status: "rejected", approval_note: String(note || "Rejected.").slice(0, 1000) }) :
-    (action === "approve" ? { verification_status: "verified", reviewed_by: ctx.user.id, reviewed_at: now, verified_at: now } : { verification_status: "rejected", reviewed_by: ctx.user.id, reviewed_at: now });
+    (action === "approve"
+      ? { verification_status: "verified", verified_by: ctx.user.id, verified_at: now, review_note: String(note || "Authorization reviewed by ANISH ENTERPRISES.").slice(0, 1000) }
+      : { verification_status: "rejected", review_note: String(note || "Authorization rejected.").slice(0, 1000) });
   const updated = await patchOne(table, { id: "eq." + id }, patch);
   await auditEvent(ctx, item.organization_id || null, table.slice(0, -1) + "." + action, table.slice(0, -1), id, "success", { note: String(note || "").slice(0, 1000) });
   return updated;
@@ -261,7 +423,7 @@ export default async function handler(req, res) {
       });
       await dbRequest("org_memberships?on_conflict=organization_id,user_id", {
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify({ organization_id: organization.id, user_id: invited.id, role, status: "active", invited_by: ctx.user.id }),
+        body: JSON.stringify({ organization_id: organization.id, user_id: invited.id, role, status: "invited", invited_by: ctx.user.id }),
       });
       await auditEvent(ctx, organization.id, "user.invited", "user", invited.id, "success", { role });
       return json(res, 201, { invited: true, email, role });
