@@ -1,0 +1,12 @@
+begin;
+select plan(8);
+select has_table('public','organizations','organizations exists');
+select has_table('public','organization_memberships','memberships exists');
+select has_table('public','engagements','engagements exists');
+select has_table('public','engagement_targets','engagement targets exists');
+select has_table('public','assessment_jobs','assessment jobs exists');
+select ok((select relrowsecurity from pg_class where oid='public.organizations'::regclass),'organizations RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.assessment_jobs'::regclass),'assessment jobs RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.authorization_evidence'::regclass),'authorization evidence RLS enabled');
+select * from finish();
+rollback;
