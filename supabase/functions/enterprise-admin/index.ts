@@ -17,6 +17,9 @@ Deno.serve(async(req:Request)=>{
   const {data:userData,error:userError}=await auth.auth.getUser(match[1]);
   if(userError||!userData.user)throw fail("Invalid session.",401,"invalid_session");
   const user=userData.user;
+  const jwtPart=match[1].split(".")[1];
+  const jwtClaims=JSON.parse(atob(jwtPart.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(jwtPart.length/4)*4,"=")));
+  if(jwtClaims.aal!=="aal2")throw fail("Multi-factor authentication is required for platform administration.",403,"mfa_required");
   const {data:isAdmin,error:adminCheckError}=await auth.rpc("is_my_platform_admin");
   if(adminCheckError||isAdmin!==true)throw fail("Only an ANISH ENTERPRISES platform administrator can perform this action.",403,"platform_admin_required");
   const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
