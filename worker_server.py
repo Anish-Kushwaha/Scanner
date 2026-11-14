@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 
 from scanner_engine import (
     Finding, ScopeError, ToolError, add_finding, load_allowlist, normalize_target,
-    resolve_target, web_assessment, run_nmap, run_zap_baseline,
+    resolve_target, resolve_enterprise_target, web_assessment, run_nmap, run_zap_baseline,
     score_findings, utc_now,
 )
 
@@ -113,30 +113,17 @@ def execute_job(job_id: str, request: dict):
     if not modules or not modules.issubset(allowed_modules):
         raise ValueError("Unsupported assessment module requested.")
     target_raw = request.get("target", "")
-    target = ""
-    host = ""
-    addresses = []
-    if target_raw:
-        try:
-            network = ipaddress.ip_network(str(target_raw).strip(), strict=False)
-        except ValueError:
-            network = None
-        allow_hosts, networks = load_allowlist()
-        if network:
-            if network.num_addresses > 256:
-                raise ScopeError("Network scope is limited to 256 addresses.")
-            if not any(network.subnet_of(n) for n in networks if n.version == network.version):
-                raise ScopeError("CIDR must be contained in SCANNER_ALLOWED_TARGETS.")
-            target = str(network)
-            host = str(network.network_address)
-            addresses = [str(ip) for ip in network.hosts()]
-        else:
-            target = normalize_target(str(target_raw))
-            parsed = urlsplit(target)
-            host = parsed.hostname or ""
-            addresses = resolve_target(host, allow_hosts, networks)
-    if ({"web", "network", "tls", "zap"} & modules) and not target:
-        raise ValueError("A target is required for the selected network/web modules.")
+    enterprise_scope = request.get("enterprise_scope")
+    if not isinstance(enterprise_scope, dict):
+        raise ScopeError("A server-issued enterprise engagement scope is required.")
+    scope_modules = set(enterprise_scope.get("allowed_modules") or [])
+    if not modules.issubset(scope_modules):
+        raise ScopeError("Requested modules exceed the approved engagement scope.")
+    if not target_raw:
+        raise ValueError("A verified target is required for the selected assessment modules.")
+    target, host, addresses, network = resolve_enterprise_target(
+        str(target_raw), enterprise_scope
+    )
     profile = request.get("profile", "standard")
     if profile not in {"passive", "standard", "advanced"}:
         raise ValueError("Invalid scan profile.")
@@ -161,7 +148,12 @@ def execute_job(job_id: str, request: dict):
     results["summary"] = score_findings(findings)
     results["scan_id"] = job_id
     results["schema_version"] = "1.1"
-    results["authorization"] = {"attested": True, "allowlist_enforced": True}
+    results["authorization"] = {
+        "mode": "verified_engagement",
+        "engagement_id": enterprise_scope.get("engagement_id"),
+        "asset_id": enterprise_scope.get("asset_id"),
+        "scope_enforced": True,
+    }
     results["generated_at"] = utc_now()
     results["capabilities"] = {
         "web_crawling": bool(results.get("web", {}).get("pages_checked")),
@@ -180,7 +172,7 @@ def execute_job(job_id: str, request: dict):
         "No exploit execution, credential attacks, persistence, evasion, destructive tests, or denial-of-service checks.",
         "Service version fingerprints are not proof of CVE exploitability.",
         "The heuristic risk score is not CVSS.",
-        "The worker is a single-host service; durable distributed queues, user accounts and team RBAC are not included.",
+        "The scan was executed against a server-issued, verified engagement scope. Private destinations require a customer-connected scanner agent.",
     ]
     job.update({"status": "completed", "completed_at": utc_now(), "report": results})
     write_job(job)
@@ -261,8 +253,18 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             data = json.loads(self.rfile.read(length))
-            if not isinstance(data, dict) or data.get("authorization_confirmed") is not True:
-                raise ValueError("Confirm written authorization for this assessment.")
+            scope = data.get("enterprise_scope") if isinstance(data, dict) else None
+            required_scope = (
+                "organization_id", "engagement_id", "asset_id", "asset_type",
+                "canonical_target", "asset_verification_status", "engagement_status",
+                "allowed_modules"
+            )
+            if not isinstance(scope, dict) or any(not scope.get(key) for key in required_scope):
+                raise ValueError("A complete server-issued enterprise authorization scope is required.")
+            if scope.get("asset_verification_status") != "verified" or scope.get("engagement_status") not in {"approved", "active"}:
+                raise ValueError("The asset or engagement is not approved for scanning.")
+            if data.get("target") != scope.get("canonical_target"):
+                raise ValueError("The requested target does not match the approved asset scope.")
             with lock:
                 if len(active_jobs) >= 2:
                     self.send_json(429, {"error": "Worker capacity reached. Retry shortly."})
