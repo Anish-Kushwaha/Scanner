@@ -27,12 +27,13 @@ Deno.serve(async(req:Request)=>{
   const action=String(body.action||"");
 
   if(action==="dashboard"){
-   const [{data:profiles},{data:organizations},{data:memberships},{data:engagements},{data:assets},{data:userList}]=await Promise.all([
+   const [{data:profiles},{data:organizations},{data:memberships},{data:engagements},{data:assets},{data:evidence},{data:userList}]=await Promise.all([
     admin.from("user_profiles").select("user_id,display_name,account_status,created_at").in("account_status",["pending","approved","suspended"]).order("created_at",{ascending:false}).limit(200),
     admin.from("organizations").select("id,legal_name,slug,status,created_at,created_by").in("status",["pending","verified","suspended"]).order("created_at",{ascending:false}).limit(200),
     admin.from("organization_memberships").select("id,organization_id,user_id,role,status,created_at").in("status",["invited","active","suspended"]).order("created_at",{ascending:false}).limit(300),
     admin.from("engagements").select("id,organization_id,project_id,title,purpose,status,requested_by,created_at,policy").in("status",["pending_approval","approved","active","rejected"]).order("created_at",{ascending:false}).limit(200),
     admin.from("assets").select("id,organization_id,project_id,kind,canonical_target,verification_status,verification_method,created_at").in("verification_status",["pending","verified"]).order("created_at",{ascending:false}).limit(200),
+    admin.from("authorization_evidence").select("id,engagement_id,evidence_type,evidence_uri,evidence_sha256,verified_at,expires_at,notes,created_at").order("created_at",{ascending:false}).limit(300),
     admin.auth.admin.listUsers({page:1,perPage:500})
    ]);
    const users=userList?.users||[];
@@ -42,7 +43,8 @@ Deno.serve(async(req:Request)=>{
     organizations:organizations||[],
     memberships:(memberships||[]).map((x:any)=>({...x,email:emailById.get(x.user_id)||null})),
     engagements:engagements||[],
-    assets:assets||[]
+    assets:assets||[],
+    evidence:evidence||[]
    });
   }
 
