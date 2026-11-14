@@ -117,6 +117,18 @@ async function verifyAsset(ctx, data) {
   await auditEvent(ctx, asset.organization_id, "asset.verified", "asset", asset.id, "success", { method: "dns_txt" });
   return result;
 }
+async function sendInvitation(email, redirectTo, metadata) {
+  const cfg = platformConfig();
+  const response = await fetch(cfg.url + "/auth/v1/invite", {
+    method: "POST",
+    headers: { apikey: cfg.serviceKey, Authorization: "Bearer " + cfg.serviceKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, data: metadata, redirect_to: redirectTo }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.id) fail(body.msg || body.message || "Supabase could not create the invitation.", 400);
+  return body;
+}
 async function createEngagement(ctx, data) {
   const org = data.organization_id, projectId = data.project_id;
   if (!uuid(org) || !uuid(projectId)) fail("Valid organization and project IDs are required.");
@@ -231,6 +243,28 @@ export default async function handler(req, res) {
       await patchOne("access_requests", { id: "eq." + item.id }, { status: "approved", reviewed_by: ctx.user.id, reviewed_at: new Date().toISOString(), review_note: String(data.review_note || "Approved.").slice(0, 1000) });
       await auditEvent(ctx, org.id, "access_request.approved", "access_request", item.id, "success", {});
       return json(res, 201, { organization: org, next_step: "Invite the approved organization owner." });
+    }
+
+    const invite = path.match(/^admin\\/organizations\\/([0-9a-f-]{36})\\/invite$/);
+    if (req.method === "POST" && invite) {
+      admin(ctx, ["super_admin", "platform_admin"]);
+      const data = await readBody(req);
+      const email = emailValid(data.email);
+      const role = String(data.role || "owner");
+      if (!email || !["owner", "org_admin", "security_engineer", "developer", "auditor"].includes(role)) fail("Valid email and organization role are required.");
+      const organization = await getOne("organizations", { id: "eq." + invite[1], status: "eq.active" });
+      if (!organization) fail("Active organization not found.", 404);
+      const invited = await sendInvitation(email, url.origin + "/enterprise.html?invited=1", { organization_id: organization.id, invited_role: role });
+      await dbRequest("platform_profiles?on_conflict=user_id", {
+        method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({ user_id: invited.id, email, display_name: String(data.display_name || "").slice(0, 120), status: "active" }),
+      });
+      await dbRequest("org_memberships?on_conflict=organization_id,user_id", {
+        method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({ organization_id: organization.id, user_id: invited.id, role, status: "active", invited_by: ctx.user.id }),
+      });
+      await auditEvent(ctx, organization.id, "user.invited", "user", invited.id, "success", { role });
+      return json(res, 201, { invited: true, email, role });
     }
 
     const projects = path.match(/^organizations\/([0-9a-f-]{36})\/projects$/);
