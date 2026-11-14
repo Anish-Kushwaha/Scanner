@@ -19,8 +19,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 JOB_DIR = pathlib.Path(os.environ.get("SCANNER_JOB_DIR", str(ROOT / ".scanner-jobs")))
 TOKEN = os.environ.get("SCANNER_WORKER_TOKEN", "")
 SOURCE_SHA = os.environ.get("SCANNER_SOURCE_SHA", "")
-ALLOWED_TARGETS = os.environ.get("SCANNER_ALLOWED_TARGETS", "")
-SCOPE_SHA = hashlib.sha256(ALLOWED_TARGETS.encode()).hexdigest()
+SCOPE_SIGNING_SECRET = os.environ.get("SCANNER_SCOPE_SIGNING_SECRET", "")
+SCOPE_SHA = hashlib.sha256(SCOPE_SIGNING_SECRET.encode()).hexdigest()
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("SCANNER_WORKER_PORT", "8080"))
 PID_FILE = JOB_DIR / ".worker.pid"
@@ -123,6 +123,8 @@ def main() -> int:
 
     if len(TOKEN) < 32:
         raise SystemExit("SCANNER_WORKER_TOKEN is missing or too short.")
+    if len(SCOPE_SIGNING_SECRET) < 48:
+        raise SystemExit("SCANNER_SCOPE_SIGNING_SECRET is missing or too short.")
     if SOURCE_SHA and (len(SOURCE_SHA) != 40 or any(c not in "0123456789abcdef" for c in SOURCE_SHA)):
         raise SystemExit("SCANNER_SOURCE_SHA is invalid.")
 
@@ -164,7 +166,7 @@ def main() -> int:
             "SCANNER_WORKER_TOKEN_FILE": str(TOKEN_FILE),
             "SCANNER_JOB_DIR": str(JOB_DIR),
             "SCANNER_SOURCE_SHA": SOURCE_SHA,
-            "SCANNER_ALLOWED_TARGETS": ALLOWED_TARGETS,
+            "SCANNER_SCOPE_SIGNING_SECRET": SCOPE_SIGNING_SECRET,
         })
         with LOG_FILE.open("ab", buffering=0) as log:
             process = subprocess.Popen(
