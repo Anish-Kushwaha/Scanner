@@ -27,6 +27,9 @@ Deno.serve(async(req:Request)=>{
   if(action==="bootstrap_first_admin"){
    if(String(user.email||"").toLowerCase()!=="anishkushwahag28@gmail.com")
     throw fail("Only the verified ANISH ENTERPRISES owner email can bootstrap the first administrator.",403,"bootstrap_email_mismatch");
+   const {data:alreadyAdmin}=await admin.rpc("is_platform_admin_user",{check_user_id:user.id});
+   if(alreadyAdmin===true)
+    return reply(200,{bootstrapped:false,already_admin:true,role:"supreme_admin",email:"anishkushwahag28@gmail.com"});
    const {data:bootstrapped,error:bootstrapError}=await admin.rpc("bootstrap_first_platform_admin",{check_user_id:user.id});
    if(bootstrapError||bootstrapped!==true)
     throw fail(bootstrapError?.message||"First administrator bootstrap was not completed.",409,"bootstrap_failed");
