@@ -1,4 +1,6 @@
 import { Sandbox } from "@vercel/sandbox";
+import { createHash } from "node:crypto";
+import { authorizeAssessment, authorizeHealth, authorizeJobStatus } from "./lib/enterprise-auth.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -77,7 +79,7 @@ async function readBody(req) {
   return Buffer.concat(chunks);
 }
 
-async function workerHealth(base, expectedSha) {
+async function workerHealth(base, expectedSha, expectedScopeSha) {
   try {
     const response = await fetch(base + "/health", {
       cache: "no-store",
@@ -87,7 +89,8 @@ async function workerHealth(base, expectedSha) {
     const health = await response.json();
     return health?.status === "healthy"
       && health?.nmap_privileges === true
-      && (!expectedSha || health?.source_sha === expectedSha);
+      && (!expectedSha || health?.source_sha === expectedSha)
+      && (!expectedScopeSha || health?.scope_sha === expectedScopeSha);
   } catch {
     return false;
   }
@@ -95,16 +98,17 @@ async function workerHealth(base, expectedSha) {
 
 async function getWorkerBase() {
   const token = process.env.SCANNER_WORKER_TOKEN || "";
-  const allowedTargets = process.env.SCANNER_ALLOWED_TARGETS || "";
-  if (token.length < 32 || !allowedTargets.trim()) {
-    const error = new Error("The Vercel preview environment is missing the worker token or authorized target allowlist.");
+  const signingSecret = process.env.SCANNER_SCOPE_SIGNING_SECRET || "";
+  if (token.length < 32 || signingSecret.length < 48) {
+    const error = new Error("The enterprise worker credentials are not configured for this deployment.");
     error.code = "worker_not_configured";
     throw error;
   }
 
   const expectedSha = process.env.VERCEL_GIT_COMMIT_SHA || "";
+  const expectedScopeSha = createHash("sha256").update(signingSecret).digest("hex");
   if (cachedWorkerBase && Date.now() - cachedAt < 15_000) {
-    if (await workerHealth(cachedWorkerBase, expectedSha)) return cachedWorkerBase;
+    if (await workerHealth(cachedWorkerBase, expectedSha, expectedScopeSha)) return cachedWorkerBase;
     cachedWorkerBase = "";
     cachedAt = 0;
   }
@@ -156,7 +160,7 @@ async function getWorkerBase() {
         SCANNER_WORKER_HOST: "0.0.0.0",
         SCANNER_WORKER_PORT: "8080",
         SCANNER_WORKER_TOKEN: token,
-        SCANNER_ALLOWED_TARGETS: allowedTargets,
+        SCANNER_SCOPE_SIGNING_SECRET: signingSecret,
         SCANNER_JOB_DIR: "/vercel/Scanner/.scanner-jobs",
         SCANNER_SOURCE_SHA: sourceSha
       },
@@ -167,7 +171,7 @@ async function getWorkerBase() {
     }
 
     const base = sandbox.domain(8080);
-    if (!(await workerHealth(base, sourceSha))) {
+    if (!(await workerHealth(base, sourceSha, expectedScopeSha))) {
       throw new Error("The resumed Scanner worker failed health, root-privilege, or source-version verification.");
     }
 
