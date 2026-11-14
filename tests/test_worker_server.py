@@ -118,7 +118,7 @@ class ScopeGrantTests(unittest.TestCase):
     def test_tampered_grant_is_rejected(self):
         claims, token = self.make_grant("a" * 64)
         request = {"target": claims["target"], "modules": claims["modules"],
-                   "profile": claims["profile"], "signed_grant": token[:-1] + "x"}
+                   "profile": claims["profile"], "signed_grant": ("A" if token[0] != "A" else "B") + token[1:]}
         with patch.object(worker_server, "SCOPE_SIGNING_SECRET", "a" * 64):
             with self.assertRaises(worker_server.ScopeError):
                 worker_server.verify_scope_grant(request)
