@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(10);
 select has_table('public','organizations','organizations exists');
 select has_table('public','organization_memberships','memberships exists');
 select has_table('public','engagements','engagements exists');
@@ -8,5 +8,7 @@ select has_table('public','assessment_jobs','assessment jobs exists');
 select ok((select relrowsecurity from pg_class where oid='public.organizations'::regclass),'organizations RLS enabled');
 select ok((select relrowsecurity from pg_class where oid='public.assessment_jobs'::regclass),'assessment jobs RLS enabled');
 select ok((select relrowsecurity from pg_class where oid='public.authorization_evidence'::regclass),'authorization evidence RLS enabled');
+select ok(not has_function_privilege('anon','public.rls_auto_enable()','EXECUTE'),'anon cannot execute public RLS event helper');
+select ok(not has_function_privilege('authenticated','public.rls_auto_enable()','EXECUTE'),'authenticated cannot execute public RLS event helper');
 select * from finish();
 rollback;
