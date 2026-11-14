@@ -268,7 +268,7 @@ create trigger on_auth_user_created
 
 create or replace function private.bootstrap_org_owner_membership()
 returns trigger language plpgsql security definer set search_path = ''
-as $
+as $org_owner$
 begin
  insert into public.organization_memberships(
   organization_id,user_id,role,status,invited_by,approved_by
@@ -277,7 +277,7 @@ begin
  ) on conflict (organization_id,user_id) do nothing;
  return new;
 end
-$;
+$org_owner$;
 revoke all on function private.bootstrap_org_owner_membership() from public, anon, authenticated;
 create trigger on_organization_created
  after insert on public.organizations for each row
