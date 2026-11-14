@@ -113,7 +113,7 @@ async function verifyAsset(ctx, data) {
     fail("DNS TXT proof was not found. Publish the provided TXT record and retry.", 409);
   }
   const result = await patchOne("assets", { id: "eq." + asset.id }, {
-    verification_status: "verified", verified_at: new Date().toISOString(), challenge_hash: null, challenge_expires_at: null,
+    verification_status: "verified", verified_at: new Date().toISOString(), verified_by: ctx.user.id, challenge_hash: null, challenge_expires_at: null,
   });
   await auditEvent(ctx, asset.organization_id, "asset.verified", "asset", asset.id, "success", { method: "dns_txt" });
   return result;
@@ -363,6 +363,19 @@ export default async function handler(req, res) {
       if (!ctx || ctx.denied) { clearSessionCookies(res); fail("Your account is awaiting ANISH ENTERPRISES approval or has been suspended.", 403); }
       return json(res, 200, { ok: true, user: { id: ctx.user.id, email: ctx.user.email }, access: ctx.access });
     }
+    if (req.method === "POST" && path === "session") {
+      const data = await readBody(req, 16384);
+      const accessToken = String(data.access_token || "");
+      const refreshToken = String(data.refresh_token || "");
+      if (accessToken.length < 20 || accessToken.length > 8192 || refreshToken.length < 20 || refreshToken.length > 8192) {
+        fail("Invalid invitation session tokens.", 400);
+      }
+      const tokenContext = await getAccessContext({ headers: { authorization: "Bearer " + accessToken } }, res);
+      if (!tokenContext || tokenContext.denied) fail("Invitation is invalid, expired, or not approved by ANISH ENTERPRISES.", 403);
+      storeSessionCookies(res, { access_token: accessToken, refresh_token: refreshToken, expires_in: Number(data.expires_in) || 3600 });
+      return json(res, 200, { ok: true, user: { id: tokenContext.user.id, email: tokenContext.user.email }, pendingInvites: tokenContext.pendingInvites || [] });
+    }
+
     if (req.method === "POST" && path === "logout") { clearSessionCookies(res); return json(res, 200, { ok: true }); }
 
     if (req.method === "POST" && path === "access-requests") {
