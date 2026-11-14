@@ -1,4 +1,5 @@
 import { Sandbox } from "@vercel/sandbox";
+import { timingSafeEqual } from "node:crypto";
 
 export const config = { api: { bodyParser: false } };
 
@@ -38,6 +39,17 @@ function originAllowed(req) {
   const allowed = (process.env.SCANNER_ALLOWED_ORIGINS || "https://anish-kushwaha.github.io,https://scanner-rose-rho.vercel.app")
     .split(",").map((item) => item.trim()).filter(Boolean);
   return allowed.includes(origin);
+}
+
+function internalAuthorized(req) {
+  const expected = process.env.SCANNER_WORKER_TOKEN || "";
+  const supplied = String(req.headers["x-scanner-internal-key"] || "");
+  if (expected.length < 32 || supplied.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 function clientKey(req) {
@@ -95,9 +107,9 @@ async function workerHealth(base, expectedSha) {
 
 async function getWorkerBase() {
   const token = process.env.SCANNER_WORKER_TOKEN || "";
-  const allowedTargets = process.env.SCANNER_ALLOWED_TARGETS || "";
-  if (token.length < 32 || !allowedTargets.trim()) {
-    const error = new Error("The Vercel preview environment is missing the worker token or authorized target allowlist.");
+  const allowedTargets = "";
+  if (token.length < 32) {
+    const error = new Error("The private worker gateway credential is not configured.");
     error.code = "worker_not_configured";
     throw error;
   }
@@ -221,30 +233,24 @@ async function proxyToWorker(req, res, method, path, payload) {
 }
 
 export default async function handler(req, res) {
-  const url = new URL(req.url || "/api/worker", "https://" + (req.headers.host || "localhost"));
-  if (req.headers.origin && originAllowed(req)) {
-    res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
-    res.setHeader("Vary", "Origin");
+  // The worker gateway is an internal server-to-server surface only.
+  // Browser clients must use /api/enterprise, which authenticates the user and
+  // loads the approved asset/engagement scope before dispatching a job.
+  if (!internalAuthorized(req)) {
+    return sendJson(res, 404, { error: "Endpoint not found." });
   }
 
-  if (req.method === "OPTIONS") {
-    if (!originAllowed(req)) return sendJson(res, 403, { error: "Origin is not allowed." });
-    res.statusCode = 204;
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Max-Age", "600");
-    return res.end();
-  }
+  const url = new URL(req.url || "/api/worker", "https://" + (req.headers.host || "localhost"));
 
   if (req.method === "GET") {
-    if (req.headers.origin && !originAllowed(req)) return sendJson(res, 403, { error: "Origin is not allowed." });
     const jobId = url.searchParams.get("job_id") || "";
-    if (jobId && !/^[a-f0-9-]{36}$/.test(jobId)) return sendJson(res, 400, { error: "Invalid job identifier." });
+    if (jobId && !/^[a-f0-9-]{36}$/.test(jobId)) {
+      return sendJson(res, 400, { error: "Invalid job identifier." });
+    }
     return proxyToWorker(req, res, "GET", jobId ? "/v1/jobs/" + jobId : "/health");
   }
 
   if (req.method === "POST") {
-    if (!originAllowed(req)) return sendJson(res, 403, { error: "Requests must come from the Scanner web application." });
     const raw = await readBody(req);
     if (!raw) return sendJson(res, 413, { error: "Request body missing or larger than 4 MB." });
     let payload;
@@ -253,13 +259,15 @@ export default async function handler(req, res) {
     } catch {
       return sendJson(res, 400, { error: "Invalid JSON request." });
     }
-    if (!payload || typeof payload !== "object" || Array.isArray(payload) || payload.authorization_confirmed !== true) {
-      return sendJson(res, 403, { error: "Confirm that you own the target or have explicit authorization." });
+    if (!payload || typeof payload !== "object" || Array.isArray(payload) || !payload.enterprise_scope) {
+      return sendJson(res, 403, { error: "A verified enterprise assessment scope is required." });
     }
-    if (!checkRateLimit(req)) return sendJson(res, 429, { error: "Rate limit reached." }, { "Retry-After": "60" });
+    if (!checkRateLimit(req)) {
+      return sendJson(res, 429, { error: "Worker dispatch rate limit reached." }, { "Retry-After": "60" });
+    }
     return proxyToWorker(req, res, "POST", "/v1/jobs", payload);
   }
 
-  res.setHeader("Allow", "GET, POST, OPTIONS");
+  res.setHeader("Allow", "GET, POST");
   return sendJson(res, 405, { error: "Method not allowed." });
 }
