@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080d18"><title>Sign in — ANISH ENTERPRISES SCANNER</title>
+<style>
+:root{color-scheme:dark;--bg:#080d18;--panel:#101827;--line:#25364d;--text:#edf4ff;--muted:#91a2bb;--cyan:#49d7e8;--red:#ff7185;--green:#49d7a2}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px;background:radial-gradient(ellipse at 80% -15%,#16364b 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}
+.card{width:min(100%,480px);border:1px solid var(--line);border-radius:22px;padding:28px;background:linear-gradient(145deg,#121f32,#0e1726);box-shadow:0 25px 70px #0008}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}.mark{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#67e8ef,#188db8);display:grid;place-items:center;color:#06131d;font-weight:900;font-size:20px}.brand b{letter-spacing:.15em}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.17em}
+h1{font-size:25px;letter-spacing:-.04em;margin:0 0 5px}.sub{color:var(--muted);margin:0 0 22px;font-size:13px}
+.tabs{display:flex;gap:7px;padding:4px;border:1px solid var(--line);border-radius:11px;margin-bottom:18px}.tabs button{flex:1;padding:9px;border:0;background:transparent;border-radius:8px;color:var(--muted);font-weight:700}.tabs button.active{background:#1a2e44;color:var(--text)}
+.field{display:grid;gap:6px;margin:13px 0}.field label{color:#afbed0;font-size:11px;font-weight:700}.field input{height:46px;border:1px solid #34465f;background:#091423;color:var(--text);border-radius:10px;padding:0 12px;outline:none}.field input:focus{border-color:var(--cyan)}
+.btn{border:0;border-radius:11px;padding:13px 16px;background:linear-gradient(135deg,#5ce3ec,#1da8c1);color:#07141e;font-weight:850;width:100%;margin-top:10px}.btn.secondary{background:#17283b;color:var(--text);border:1px solid var(--line)}
+.note{color:var(--muted);font-size:11px;margin-top:15px}.alert{display:none;padding:12px;border-radius:10px;background:#2a1821;border:1px solid #6b3440;color:#ffb1bd;margin:15px 0;font-size:12px}.success{background:#11251e;border-color:#285a4b;color:#9be8c9}
+#totpQr{display:block;max-width:220px;margin:15px auto;background:white;padding:10px;border-radius:10px}code{overflow-wrap:anywhere;color:#9eeaf1}.hidden{display:none!important}.footer{margin-top:24px;text-align:center;color:#64758d;font-size:10px}
+</style>
+</head>
+<body>
+<main class="card">
+ <div class="brand"><div class="mark">A</div><div><b>ANISH ENTERPRISES</b><small>SCANNER · SECURITY OPERATIONS</small></div></div>
+ <section id="authSection">
+  <h1>Secure workspace access</h1><p class="sub">Access is granted only after ANISH ENTERPRISES approval.</p>
+  <div class="tabs"><button id="tabLogin" class="active">Sign in</button><button id="tabRegister">Request access</button></div>
+  <form id="loginForm">
+   <div class="field"><label>Email address</label><input id="loginEmail" type="email" autocomplete="username" required></div>
+   <div class="field"><label>Password</label><input id="loginPassword" type="password" autocomplete="current-password" required minlength="8"></div>
+   <button class="btn" type="submit">Sign in securely →</button>
+  </form>
+  <form id="registerForm" class="hidden">
+   <div class="field"><label>Full name</label><input id="registerName" autocomplete="name" required></div>
+   <div class="field"><label>Work email</label><input id="registerEmail" type="email" autocomplete="email" required></div>
+   <div class="field"><label>Create password</label><input id="registerPassword" type="password" autocomplete="new-password" required minlength="10"></div>
+   <button class="btn" type="submit">Submit access request →</button>
+  </form>
+ </section>
+ <section id="mfaSection" class="hidden">
+  <h1 id="mfaTitle">Multi-factor authentication</h1>
+  <p class="sub" id="mfaText">Verify with your authenticator app.</p>
+  <img id="totpQr" class="hidden" alt="Authenticator enrollment QR code">
+  <div id="secretWrap" class="field hidden"><label>Manual authenticator secret</label><code id="totpSecret"></code></div>
+  <div class="field"><label>6-digit authenticator code</label><input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></div>
+  <button class="btn" id="verifyMfa">Verify and continue →</button>
+  <button class="btn secondary" id="restartMfa">Start over</button>
+ </section>
+ <div class="alert" id="alert" role="alert"></div>
+ <div class="footer">© 2026 ANISH ENTERPRISES · ⚚Ⓐ⚚</div>
+</main>
+<script src="/supabase-config.js"></script><script src="/auth.js"></script>
+<script>
+const $=id=>document.getElementById(id);let factorId="",challengeId="",mfaMode="challenge";
+function showMessage(message,success=false){$("alert").textContent=message;$("alert").className="alert"+(success?" success":"");$("alert").style.display="block"}
+function clearMessage(){$("alert").style.display="none"}
+function switchTab(tab){clearMessage();$("tabLogin").classList.toggle("active",tab==="login");$("tabRegister").classList.toggle("active",tab==="register");$("loginForm").classList.toggle("hidden",tab!=="login");$("registerForm").classList.toggle("hidden",tab!=="register")}
+$("tabLogin").onclick=()=>switchTab("login");$("tabRegister").onclick=()=>switchTab("register");
+async function startMfa(){
+ const factors=await ScannerAuth.factors();
+ const verified=factors.find(f=>f.factor_type==="totp"&&f.status==="verified");
+ if(verified){factorId=verified.id;mfaMode="challenge";const ch=await ScannerAuth.startMfa(factorId);challengeId=ch.id;$("mfaTitle").textContent="Verify your identity";$("mfaText").textContent="Enter the code from your registered authenticator app.";$("totpQr").classList.add("hidden");$("secretWrap").classList.add("hidden")}
+ else {const f=await ScannerAuth.enrollMfa();factorId=f.id;mfaMode="enroll";const ch=await ScannerAuth.startMfa(factorId);challengeId=ch.id;$("mfaTitle").textContent="Register an authenticator";$("mfaText").textContent="Scan this QR code with an authenticator app, then enter the six-digit code.";$("totpQr").src=f.totp.qr_code;$("totpQr").classList.remove("hidden");$("totpSecret").textContent=f.totp.secret;$("secretWrap").classList.remove("hidden")}
+ $("authSection").classList.add("hidden");$("mfaSection").classList.remove("hidden");$("mfaCode").value="";$("mfaCode").focus();
+}
+$("loginForm").onsubmit=async e=>{e.preventDefault();clearMessage();const b=e.submitter;b.disabled=true;try{await ScannerAuth.signIn($("loginEmail").value.trim(),$("loginPassword").value);await startMfa()}catch(err){showMessage(err.message)}finally{b.disabled=false}};
+$("registerForm").onsubmit=async e=>{e.preventDefault();clearMessage();const b=e.submitter;b.disabled=true;try{const r=await ScannerAuth.signUp($("registerEmail").value.trim(),$("registerPassword").value,$("registerName").value.trim());if(!r.access_token){showMessage("Your access request has been created. Verify your email, then sign in. ANISH ENTERPRISES must approve your account before you can enter the workspace.",true)}else{showMessage("Account created. Complete multi-factor setup next.",true);await startMfa()}}catch(err){showMessage(err.message)}finally{b.disabled=false}};
+$("verifyMfa").onclick=async()=>{clearMessage();$("verifyMfa").disabled=true;try{await ScannerAuth.verifyMfa(factorId,challengeId,$("mfaCode").value);const me=await ScannerAuth.edge("workspace-data",{});showMessage("Identity verified. Opening your workspace…",true);location.replace("/workspace.html")}catch(err){if(err.code==="account_not_approved"){showMessage("Your identity is verified, but your account is awaiting ANISH ENTERPRISES approval. You cannot access customer projects until approved.",true)}else{showMessage(err.message)}}finally{$("verifyMfa").disabled=false}};
+$("restartMfa").onclick=()=>{ScannerAuth.signOutLocal();$("mfaSection").classList.add("hidden");$("authSection").classList.remove("hidden");clearMessage()};
+(async()=>{try{const s=await ScannerAuth.getSession();if(s){const u=await ScannerAuth.user();if(u){await startMfa()}}}catch(_){}})();
+</script>
+</body></html>
