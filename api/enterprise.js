@@ -327,6 +327,9 @@ async function review(ctx, table, id, action, note) {
   if (!item) fail("Review item not found.", 404);
   if (table === "engagements" && item.status !== "pending_review") fail("Engagement is not pending review.", 409);
   if (table === "assets" && item.verification_status !== "pending_review") fail("Asset is not pending manual review.", 409);
+  if (table === "assets" && action === "approve" && !String(item.authorization_evidence || "").trim()) {
+    fail("Manual asset approval requires documented authorization evidence.", 403);
+  }
   const now = new Date().toISOString();
   const patch = table === "engagements" ?
     (action === "approve" ? { status: "approved", approved_by: ctx.user.id, approved_at: now, approval_note: String(note || "Approved by ANISH ENTERPRISES.").slice(0, 1000) } : { status: "rejected", approval_note: String(note || "Rejected.").slice(0, 1000) }) :
@@ -422,6 +425,18 @@ export default async function handler(req, res) {
     if (req.method === "GET" && path === "admin/requests") {
       admin(ctx);
       return json(res, 200, { requests: await getRows("access_requests", { status: "eq.pending" }, "*") });
+    }
+    if (req.method === "GET" && path === "admin/organizations") {
+      admin(ctx);
+      return json(res, 200, { organizations: await getRows("organizations", {}, "id,name,slug,website,status,created_at") });
+    }
+    if (req.method === "GET" && path === "admin/review-queue") {
+      admin(ctx);
+      const [assets, engagements] = await Promise.all([
+        getRows("assets", { verification_status: "eq.pending_review" }, "id,organization_id,project_id,asset_type,canonical_value,authorization_evidence,created_at"),
+        getRows("engagements", { status: "eq.pending_review" }, "id,organization_id,project_id,name,purpose,allowed_modules,starts_at,expires_at,created_at"),
+      ]);
+      return json(res, 200, { assets, engagements });
     }
 
     const requestReview = path.match(/^admin\/requests\/([0-9a-f-]{36})\/(approve|reject)$/);
