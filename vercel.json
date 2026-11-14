@@ -8,10 +8,6 @@
     {
       "src": "api/worker.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
     }
   ],
   "routes": [
@@ -30,16 +26,8 @@
       "continue": true
     },
     {
-      "src": "/api/scan/?$",
-      "dest": "/api/index.py"
-    },
-    {
       "src": "/api/worker/?$",
       "dest": "/api/worker.js"
-    },
-    {
-      "src": "/health/?$",
-      "dest": "/api/index.py"
     },
     {
       "handle": "filesystem"
