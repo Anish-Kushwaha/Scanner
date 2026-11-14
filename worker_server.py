@@ -36,6 +36,7 @@ SOURCE_SHA = os.environ.get("SCANNER_SOURCE_SHA", "")
 SCOPE_SIGNING_SECRET = os.environ.get("SCANNER_SCOPE_SIGNING_SECRET", "")
 JOB_DIR = Path(os.environ.get("SCANNER_JOB_DIR", "/var/lib/scanner/jobs"))
 TOKEN_FILE = Path(os.environ.get("SCANNER_WORKER_TOKEN_FILE", str(JOB_DIR / ".worker-token")))
+MAX_TARGETS = 256
 MAX_REQUEST = 8 * 1024 * 1024
 MAX_JOBS = 100
 executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="scanner-job")
