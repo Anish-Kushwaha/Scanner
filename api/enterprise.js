@@ -382,7 +382,29 @@ export default async function handler(req, res) {
     }
 
     const ctx = await sessionContext(req, res);
-    if (req.method === "GET" && path === "me") return json(res, 200, { user: { id: ctx.user.id, email: ctx.user.email }, access: ctx.access });
+    if (req.method === "POST" && path === "accept-invitation") {
+      const data = await readBody(req);
+      const organizationId = String(data.organization_id || "");
+      if (!uuid(organizationId)) fail("Valid organization ID required.");
+      const invitation = (ctx.pendingInvites || []).find(m => m.organization_id === organizationId);
+      if (!invitation) fail("No pending invitation exists for this account and organization.", 404);
+      const accepted = await patchOne("org_memberships", {
+        id: "eq." + invitation.id,
+        user_id: "eq." + ctx.user.id,
+        status: "eq.invited",
+      }, { status: "active", accepted_at: new Date().toISOString() });
+      if (!accepted) fail("Invitation could not be accepted. It may have been revoked.", 409);
+      await auditEvent(ctx, organizationId, "user.invitation_accepted", "membership", invitation.id, "success", {});
+      return json(res, 200, { ok: true, membership: accepted });
+    }
+
+    if (req.method === "GET" && path === "me") {
+      return json(res, 200, {
+        user: { id: ctx.user.id, email: ctx.user.email },
+        access: ctx.access,
+        pendingInvites: ctx.pendingInvites || [],
+      });
+    }
 
     if (req.method === "GET" && path === "admin/requests") {
       admin(ctx);
@@ -407,7 +429,7 @@ export default async function handler(req, res) {
       return json(res, 201, { organization: org, next_step: "Invite the approved organization owner." });
     }
 
-    const invite = path.match(/^admin\\/organizations\\/([0-9a-f-]{36})\\/invite$/);
+    const invite = path.match(/^admin\/organizations\/([0-9a-f-]{36})\/invite$/);
     if (req.method === "POST" && invite) {
       admin(ctx, ["super_admin", "platform_admin"]);
       const data = await readBody(req);
@@ -454,6 +476,16 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST" && path === "engagements") return json(res, 201, { engagement: await createEngagement(ctx, await readBody(req)) });
+    if (req.method === "POST" && path === "assessments") {
+      const data = await readBody(req);
+      const result = await launchAssessment(ctx, req, data);
+      return json(res, 202, result);
+    }
+    const assessment = path.match(/^assessments\/([0-9a-f-]{36})$/);
+    if (req.method === "GET" && assessment) {
+      return json(res, 200, await getAssessment(ctx, req, assessment[1]));
+    }
+
     const engagements = path.match(/^organizations\/([0-9a-f-]{36})\/engagements$/);
     if (req.method === "GET" && engagements) {
       orgRole(ctx, engagements[1], null);
