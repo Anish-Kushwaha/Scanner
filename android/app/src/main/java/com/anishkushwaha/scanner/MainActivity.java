@@ -23,7 +23,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 public class MainActivity extends Activity {
-    private static final String APP_URL = "https://scanner-rose-rho.vercel.app/vulnerabilities.html";
+    private static final String APP_URL = "https://scanner-rose-rho.vercel.app/login.html";
     private static final int FILE_CHOOSER_REQUEST = 7401;
     private android.webkit.ValueCallback<Uri[]> uploadCallback;
     private WebView webView;
