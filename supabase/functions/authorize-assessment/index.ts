@@ -141,7 +141,10 @@ Deno.serve(async (req: Request) => {
     if (String(body.target || "").trim().toLowerCase() !== canonicalTarget.trim().toLowerCase()) throw fail("The submitted target does not match the verified asset.", 403, "target_mismatch");
 
     const maxHosts = Math.min(Number(engagement.policy?.max_hosts || 32), Number(target.constraints?.max_hosts || 32), 256);
+    const jobId = crypto.randomUUID();
     const { data: job, error: jobError } = await admin.from("assessment_jobs").insert({
+      id: jobId,
+      worker_job_id: jobId,
       organization_id: organizationId,
       project_id: projectId,
       engagement_id: engagementId,
