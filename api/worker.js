@@ -235,13 +235,15 @@ export default async function handler(req, res) {
     if (!originAllowed(req)) return sendJson(res, 403, { error: "Origin is not allowed." });
     res.statusCode = 204;
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
     res.setHeader("Access-Control-Max-Age", "600");
     return res.end();
   }
 
   if (req.method === "GET") {
-    if (!originAllowed(req)) return sendJson(res, 403, { error: "Origin is not allowed." });
+    // Read-only GETs still require a verified Supabase session and MFA in the
+    // authorization helpers below. Browsers may omit Origin on same-origin GET.
+    if (req.headers.origin && !originAllowed(req)) return sendJson(res, 403, { error: "Origin is not allowed." });
     const jobId = url.searchParams.get("job_id") || "";
     try {
       if (jobId) {
